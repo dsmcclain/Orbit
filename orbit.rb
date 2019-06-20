@@ -41,7 +41,7 @@ class Game
 end
 
 class Astronaut
-  attr_accessor :name, :attributes
+  attr_accessor :name, :attributes, :items
 
   def initialize(name)
     @name = name
@@ -51,6 +51,7 @@ class Astronaut
       :fuel => 50,
       :speed => 1
     }
+    @items = []
   end
 
   def start_turn(game)
@@ -67,6 +68,12 @@ class Astronaut
     puts "#{self.name}'s #{event.attribute} is now #{self.attributes[var]}"
   end
 
+  def retrieve_item(item)
+    self.items << item
+    puts "You now hold: "
+    self.items.each {|item| puts item[:name] + "\n"}
+  end
+
   private
 
     def calculate_distance
@@ -75,6 +82,8 @@ class Astronaut
 
     def move_ship
       self.attributes[:location] += calculate_distance
+      puts "Driving..."
+      sleep(1)
       check_location
     end
 
@@ -102,18 +111,21 @@ class Astronaut
 end
 
 class Sector 
-  attr_accessor :location, :owner, :event
+  attr_accessor :location, :owner, :event, :item
 
   def initialize(location)
     @location = location
     @owner
     @event
+    @item
   end
 
   def arrive_at_sector(game)
     puts "You have arrived at sector #{location}!"
+    sleep(1)
     claim_territory(game)
     trigger_event(game)
+    discover_item(game)
   end
 
   def claim_territory(game)
@@ -138,9 +150,32 @@ class Sector
 
   def trigger_event(game)
     !self.event && generate_event(game)
-    puts "Here you find #{event.name}!"
+    puts "This sector contains #{event.name}!"
     recipients = event.scope
     recipients.each {|recipient| recipient.receive_event(event) }
+  end
+
+  Item = Struct.new(:name, :scope, :type, :attribute, :degree)
+  def generate_item(game)
+    items_array = [
+      ["a glowing asteroid", [game.current_astronaut], "modifier","speed", 1]
+    ] 
+    self.item = Item.new(*items_array[0])
+  end
+
+  def discover_item(game)
+    !self.item && generate_item(game)
+    if self.item == -1
+      puts "Out the window there is only emptiness"
+    else
+      puts "Out the window you see a #{item.name}."
+      puts "Would you like to retrieve it?"
+      choice = gets.chomp
+      if choice.match(/(^y$|^yes$)/i)
+        game.current_astronaut.retrieve_item(self.item)
+        self.item = -1
+      end
+    end
   end
 end
 
@@ -151,7 +186,7 @@ def sector_generator(map_size)
   map = {}
   map_size.times do |location|
     location += 1
-    map[location] = Sector.new(location) 
+    map[location] = Sector.new(location)
   end
   return map
 end
