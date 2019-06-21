@@ -9,6 +9,7 @@ class Game
   end
 
   def start_game
+    print_introduction
     while day < 10
       new_turn
     end
@@ -18,9 +19,11 @@ class Game
   def new_turn
     astronauts.each {|astronaut| 
       self.current_astronaut = astronaut
+      puts "###############"
+      puts "You have been orbiting for #{day} " + (day == 1 ? "day." : "days.")
+      captains_log
       astronaut.start_turn(self)}
     self.day += 1
-    puts "You have been orbiting for #{day} " + (day > 1 ? "days." : "day.")
   end
 
   def lookup_location
@@ -38,6 +41,21 @@ class Game
   def finish_game
     puts "Game Over."
   end
+
+  private
+
+    def print_introduction
+      puts "You have secured orbit around an unknown planet."
+      sleep(2)
+      puts "Your goal is to discover as much as you can while staying alive."
+      sleep(2)
+      puts "There are no guarantees."
+      sleep(2)
+    end
+
+    def captains_log
+      puts $log[day]
+    end
 end
 
 class Astronaut
@@ -55,10 +73,28 @@ class Astronaut
   end
 
   def start_turn(game)
-    puts "#{name}'s turn!'"
-    move_ship
-    update_fuel
-    game.lookup_location
+    puts "#{name}'s turn!"
+    turn_over = false
+    until turn_over
+      puts "How do you proceed? (enter 'ls' to list possible commands)"
+      print ">>"
+      input = gets.chomp.downcase
+      case input
+      when "d"
+        move_ship
+        update_fuel
+        game.lookup_location
+        turn_over = true
+      when "c"
+        list_items
+      when "s"
+        show_statistics
+      when "ls"
+        list_options
+      else
+        puts "That command is not executable"
+      end
+    end
   end
 
   def receive_event(event)
@@ -70,8 +106,7 @@ class Astronaut
 
   def retrieve_item(item)
     self.items << item
-    puts "You now hold: "
-    self.items.each {|item| puts item[:name] + "\n"}
+    list_items
   end
 
   private
@@ -107,6 +142,28 @@ class Astronaut
 
     def update_fuel
       self.attributes[:fuel] -= 2
+    end
+
+    def list_items
+      puts "You now hold: "
+      self.items.each {|item| puts item[:name] + "\n"}
+    end
+
+    def list_options
+      puts %Q{ Possible Commands:
+        (d) - Drive ship
+        (c) - List collection
+        (s) - Ship statistics
+      }
+    end
+
+    def show_statistics
+      puts %Q{ Ship Statistics
+        Current Sector is: #{attributes[:location]}
+        Funds are        : #{attributes[:funds]}
+        Fuel is          : #{attributes[:fuel]}
+        Collection holds : #{items.size} items
+      }
     end
 end
 
@@ -201,8 +258,12 @@ def astronaut_generator(astronauts)
   return astronaut_array
 end
 
+$log = ["You are excited by the prospect of discovery.", "You have cautious optimism about what you might find.",
+        "This sector makes you feel the lonliness of space more acutely.", "You are weary of your travels",
+        "There is a sense of dread you cannot shake."]
+
 puts "Time to go to Orbit"
-puts "How large would you like the map to be? 10 is best)"
+puts "How large would you like the map to be? (10 is best)"
 map_size = gets.chomp.to_i
 map = sector_generator(map_size)
 puts "How many astronauts will be orbiting?"
