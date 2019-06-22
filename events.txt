@@ -1,0 +1,3 @@
+an explosion,current_astronaut,modifier,morale,-20
+a magnetic field,astronauts,modifier,fuel,10
+a curse,current_astronaut,modifier,fuel,-5

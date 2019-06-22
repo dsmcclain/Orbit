@@ -19,11 +19,12 @@ class Game
   end
 
   def new_turn
-    astronauts.each {|astronaut| 
+    astronauts.each do |astronaut| 
       self.current_astronaut = astronaut
       puts "\n#{current_astronaut.name}'s turn!"
       captains_log
-      astronaut.start_turn(self)}
+      astronaut.start_turn(self)
+    end
     self.day += 1
   end
 
@@ -37,6 +38,13 @@ class Game
     puts "You have arrived at sector #{sector.location}."
     sector.claim_territory(self)
     puts "At this sector there is #{sector.event}"
+  end
+
+  def who_gets_event(event)
+    recipients = []
+    recipients << send("#{event.scope}")
+    recipients.flatten!
+    recipients.each {|recipient| recipient.receive_event(event) }
   end
 
   def finish_game
@@ -115,9 +123,8 @@ class Astronaut
   end
 
   def receive_event(event)
-    puts 'here'
     var = event.attribute.to_sym
-    self.attributes[var] += event.degree
+    self.attributes[var] += event.degree.to_i
     check_location
     puts "#{self.name}'s #{event.attribute} is now #{self.attributes[var]}"
   end
@@ -170,7 +177,7 @@ class Astronaut
       input = gets.to_i - 1
       if (0..items.size).cover? input
         chosen_item = items[input]
-        print chosen_item
+        self.items.delete_at(input)
         recipients = chosen_item.scope
         recipients.each {|recipient| recipient.receive_event(chosen_item) }
       else
@@ -179,12 +186,16 @@ class Astronaut
     end
 
     def list_items
-      puts "Your collection holds: "
-      self.items.each_with_index {|item, i| puts "\t" + (i + 1).to_s + ": " + item[:name] + "\n"}
+      if items.empty?
+        puts "Your collection is empty."
+      else
+        puts "Your collection holds: "
+        self.items.each_with_index {|item, i| puts "\t" + (i + 1).to_s + ": " + item[:name] + "\n"}
+      end
     end
 
     def list_options
-      puts %Q{ Possible Commands:
+      puts %Q{>> Possible Commands: >>>>
         (d) - Drive ship
         (c) - List collection
         (s) - Ship statistics
@@ -193,7 +204,7 @@ class Astronaut
     end
 
     def show_statistics
-      puts %Q{ Ship Statistics
+      puts %Q{>> Ship Statistics >>>>
         Current Sector is: #{attributes[:location]}
         Speed is         : #{attributes[:speed]}
         Fuel is          : #{attributes[:fuel]}
@@ -231,21 +242,15 @@ class Sector
   end 
 
   Event = Struct.new(:name, :scope, :type, :attribute, :degree)
-  def generate_event(game)
-    events_array = [
-      ["an explosion", [game.current_astronaut], "modifier","morale", -20],
-      ["a magnetic field", game.astronauts, "modifier", "fuel", 10],
-      ["a curse", [owner], "modifier", "fuel", -5]
-    ] 
+  def generate_event
     num = rand(0..2)
-    self.event = Event.new(*events_array[num])
+    self.event = Event.new(*$events_array[num])
   end
 
   def trigger_event(game)
-    !self.event && generate_event(game)
+    !self.event && generate_event
     puts "This sector contains #{event.name}!"
-    recipients = event.scope
-    recipients.each {|recipient| recipient.receive_event(event) }
+    game.who_gets_event(event)
   end
 
   Item = Struct.new(:name, :scope, :type, :attribute, :degree)
@@ -298,6 +303,8 @@ $early_log = CSV.read("captains-logs/initial-log.txt")
 $optimist_log = CSV.read("captains-logs/optimist-log.txt")
 $pessimist_log = CSV.read("captains-logs/pessimist-log.txt")
 
+$events_array = CSV.read("events.txt")
+
 moon = CSV.read("moon.txt")
 moon.each {|line| puts line[0]}
 puts "\n" + "\s"*34 + "TIME TO ORBIT"
@@ -310,10 +317,3 @@ print ">>"
 astronauts = gets.chomp.to_i
 game = Game.new(astronaut_generator(astronauts), map)
 game.start_game
-
-=begin
-  Current Issues:
-    astronaut.use_item does not eliminate item from collection
-    astronaut.use_item unnecessarily involves passing instance of game around as argument so that user_prompt can still call game.lookup_location
-
-=end
