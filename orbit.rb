@@ -22,7 +22,6 @@ class Game
     astronauts.each do |astronaut| 
       self.current_astronaut = astronaut
       puts "\n#{current_astronaut.name}'s turn!"
-      captains_log
       astronaut.start_turn(self)
     end
     self.day += 1
@@ -40,7 +39,7 @@ class Game
     puts "At this sector there is #{sector.event}"
   end
 
-  def who_gets_event(event)
+  def dispatch_effect(event)
     recipients = []
     recipients << send("#{event.scope}")
     recipients.flatten!
@@ -61,27 +60,71 @@ class Game
       puts "There are no guarantees."
       sleep(2)
     end
+end
 
-    def captains_log
-      puts "\n>> CAPTAIN'S LOG >>>> I have been orbiting for #{day} " + (day == 1 ? "day." : "days.")
-      print ">> "
-      if day < 3
-        puts $early_log[day]
-      elsif current_astronaut.attributes[:morale] > 75
-        entry = rand(0..4)
-        puts $optimist_log[entry]
-      else
-        entry = rand(0..4)
-        puts $pessimist_log[entry]
-      end
+class Console
+
+  def captains_log(day)
+    puts "\n>> CAPTAIN'S LOG >>>> I have been orbiting for #{day} " + (day == 1 ? "day." : "days.")
+    print ">> "
+    if day < 3
+      puts $initial_log[day]
+    elsif attributes[:morale] > 75
+      entry = rand(0..4)
+      puts $optimist_log[entry]
+    else
+      entry = rand(0..4)
+      puts $pessimist_log[entry]
     end
+  end
+
+  def list_items(items)
+    if items.empty?
+      puts "Your collection is empty."
+    else
+      puts "Your collection holds: "
+      items.each_with_index {|item, i| puts "\t" + (i + 1).to_s + ": " + item[:name] + "\n"}
+    end
+  end
+
+  def show_statistics(attributes, items)
+    puts %Q{>> Ship Statistics >>>>
+      Current Sector is: #{attributes[:location]}
+      Speed is         : #{attributes[:speed]}
+      Fuel is          : #{attributes[:fuel]}
+      Morale is        : #{attributes[:morale]}
+      Collection holds : #{items.size} items
+    }
+  end
+
+  def list_options
+    puts %Q{>> Possible Commands: >>>>
+      (d) - Drive ship
+      (c) - List collection
+      (s) - Ship statistics
+      (i) - Use item
+    }
+  end
+
+  def user_prompt
+    puts "How will you proceed? (enter 'ls' to list possible commands)"
+    print ">>"
+    return gets.chomp.downcase
+  end
+
+
+  def warning(critical_attr)
+    puts ">> DANGER >>>> Your #{critical_attr} is low. If it falls any further you may not survive!" 
+  end
+
 end
 
 class Astronaut
-  attr_accessor :name, :attributes, :items, :turn_over
+  attr_accessor :name, :console, :attributes, :items, :turn_over
 
-  def initialize(name)
+  def initialize(name, console)
     @name = name
+    @console = console
     @attributes = {
       :location => 0,
       :morale => 100,
@@ -94,29 +137,29 @@ class Astronaut
 
   def start_turn(game)
     self.turn_over = false
+    console.captains_log(game.day)
+    console.warning("morale") if attributes[:morale] < 25
+    console.warning("fuel") if attributes[:fuel] < 10
     until turn_over
-      user_prompt(game)
+      user_choice(game)
     end
   end
 
-  def user_prompt(game)
-    puts "How do you proceed? (enter 'ls' to list possible commands)"
-    print ">>"
-    input = gets.chomp.downcase
-    case input
+  def user_choice(game)
+    case console.user_prompt
     when "d"
       move_ship
       update_fuel
       game.lookup_location
       self.turn_over = true
     when "c"
-      list_items
+      console.list_items(items)
     when "s"
-      show_statistics
+      console.show_statistics(attributes, items)
     when "i"
       use_item(game)
     when "ls"
-      list_options
+      console.list_options
     else
       puts "That command is not executable"
     end
@@ -131,7 +174,7 @@ class Astronaut
 
   def retrieve_item(item)
     self.items << item
-    list_items
+    console.list_items(items)
   end
 
   private
@@ -171,7 +214,7 @@ class Astronaut
 
     def use_item(game)
       puts "Which item will you use?"
-      list_items
+      console.list_items(items)
       puts "0: cancel"
       print ">>"
       input = gets.to_i - 1
@@ -181,37 +224,10 @@ class Astronaut
         recipients = chosen_item.scope
         recipients.each {|recipient| recipient.receive_event(chosen_item) }
       else
-        user_prompt(game)
+        user_choice(game)
       end
     end
 
-    def list_items
-      if items.empty?
-        puts "Your collection is empty."
-      else
-        puts "Your collection holds: "
-        self.items.each_with_index {|item, i| puts "\t" + (i + 1).to_s + ": " + item[:name] + "\n"}
-      end
-    end
-
-    def list_options
-      puts %Q{>> Possible Commands: >>>>
-        (d) - Drive ship
-        (c) - List collection
-        (s) - Ship statistics
-        (i) - Use item
-      }
-    end
-
-    def show_statistics
-      puts %Q{>> Ship Statistics >>>>
-        Current Sector is: #{attributes[:location]}
-        Speed is         : #{attributes[:speed]}
-        Fuel is          : #{attributes[:fuel]}
-        Morale is        : #{attributes[:morale]}
-        Collection holds : #{items.size} items
-      }
-    end
 end
 
 class Sector 
@@ -250,7 +266,7 @@ class Sector
   def trigger_event(game)
     !self.event && generate_event
     puts "This sector contains #{event.name}!"
-    game.who_gets_event(event)
+    game.dispatch_effect(event)
   end
 
   Item = Struct.new(:name, :scope, :type, :attribute, :degree)
@@ -294,24 +310,21 @@ def astronaut_generator(astronauts)
   astronauts.times do |x|
     puts "Enter Astronaut #{x+1}'s name: "
     name = gets.chomp
-    astronaut_array << Astronaut.new(name)
+    astronaut_array << Astronaut.new(name, Console.new)
   end
   return astronaut_array
 end
 
-$early_log = CSV.read("captains-logs/initial-log.txt")
+$initial_log = CSV.read("captains-logs/initial-log.txt")
 $optimist_log = CSV.read("captains-logs/optimist-log.txt")
 $pessimist_log = CSV.read("captains-logs/pessimist-log.txt")
 
 $events_array = CSV.read("events.txt")
 
-moon = CSV.read("moon.txt")
-moon.each {|line| puts line[0]}
+title = CSV.read("title.txt")
+title.each {|line| puts line[0]}
 puts "\n" + "\s"*34 + "TIME TO ORBIT"
-puts "\nHow large would you like the map to be? (10 is best)"
-print ">>"
-map_size = gets.chomp.to_i
-map = sector_generator(map_size)
+map = sector_generator(10)
 puts "How many astronauts will be orbiting?"
 print ">>"
 astronauts = gets.chomp.to_i
