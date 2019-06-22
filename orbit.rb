@@ -115,6 +115,7 @@ class Astronaut
   end
 
   def receive_event(event)
+    puts 'here'
     var = event.attribute.to_sym
     self.attributes[var] += event.degree
     check_location
@@ -134,7 +135,7 @@ class Astronaut
 
     def move_ship
       self.attributes[:location] += calculate_distance
-      puts "Driving... #{attributes[:speed]}"
+      puts "Driving..."
       sleep(1)
       check_location
     end
@@ -166,9 +167,10 @@ class Astronaut
       list_items
       puts "0: cancel"
       print ">>"
-      input = gets.to_i + 1
-      if (1..items.size).cover? input
+      input = gets.to_i - 1
+      if (0..items.size).cover? input
         chosen_item = items[input]
+        print chosen_item
         recipients = chosen_item.scope
         recipients.each {|recipient| recipient.receive_event(chosen_item) }
       else
@@ -193,8 +195,9 @@ class Astronaut
     def show_statistics
       puts %Q{ Ship Statistics
         Current Sector is: #{attributes[:location]}
-        Morale is        : #{attributes[:morale]}
+        Speed is         : #{attributes[:speed]}
         Fuel is          : #{attributes[:fuel]}
+        Morale is        : #{attributes[:morale]}
         Collection holds : #{items.size} items
       }
     end
@@ -295,18 +298,21 @@ $early_log = CSV.read("captains-logs/initial-log.txt")
 $optimist_log = CSV.read("captains-logs/optimist-log.txt")
 $pessimist_log = CSV.read("captains-logs/pessimist-log.txt")
 
-puts "Time to go to Orbit"
-puts "How large would you like the map to be? (10 is best)"
+moon = CSV.read("moon.txt")
+moon.each {|line| puts line[0]}
+puts "\n" + "\s"*34 + "TIME TO ORBIT"
+puts "\nHow large would you like the map to be? (10 is best)"
+print ">>"
 map_size = gets.chomp.to_i
 map = sector_generator(map_size)
 puts "How many astronauts will be orbiting?"
+print ">>"
 astronauts = gets.chomp.to_i
 game = Game.new(astronaut_generator(astronauts), map)
 game.start_game
 
 =begin
   Current Issues:
-    astronaut.use_item does not actually use the item (maybe because receive_event is within the same class?)
     astronaut.use_item does not eliminate item from collection
     astronaut.use_item unnecessarily involves passing instance of game around as argument so that user_prompt can still call game.lookup_location
 
