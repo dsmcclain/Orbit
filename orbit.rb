@@ -1,3 +1,5 @@
+require 'csv'
+
 class Game
   attr_accessor :astronauts, :map, :current_astronaut, :day
 
@@ -19,8 +21,7 @@ class Game
   def new_turn
     astronauts.each {|astronaut| 
       self.current_astronaut = astronaut
-      puts "###############"
-      puts "You have been orbiting for #{day} " + (day == 1 ? "day." : "days.")
+      puts "\n#{current_astronaut.name}'s turn!"
       captains_log
       astronaut.start_turn(self)}
     self.day += 1
@@ -54,46 +55,62 @@ class Game
     end
 
     def captains_log
-      puts $log[day]
+      puts "\n>> CAPTAIN'S LOG >>>> I have been orbiting for #{day} " + (day == 1 ? "day." : "days.")
+      print ">> "
+      if day < 3
+        puts $early_log[day]
+      elsif current_astronaut.attributes[:morale] > 75
+        entry = rand(0..4)
+        puts $optimist_log[entry]
+      else
+        entry = rand(0..4)
+        puts $pessimist_log[entry]
+      end
     end
 end
 
 class Astronaut
-  attr_accessor :name, :attributes, :items
+  attr_accessor :name, :attributes, :items, :turn_over
 
   def initialize(name)
     @name = name
     @attributes = {
       :location => 0,
-      :funds => 1000,
+      :morale => 100,
       :fuel => 50,
       :speed => 1
     }
     @items = []
+    @turn_over = false
   end
 
   def start_turn(game)
-    puts "#{name}'s turn!"
-    turn_over = false
+    self.turn_over = false
     until turn_over
-      puts "How do you proceed? (enter 'ls' to list possible commands)"
-      print ">>"
-      input = gets.chomp.downcase
-      case input
-      when "d"
-        move_ship
-        update_fuel
-        game.lookup_location
-        turn_over = true
-      when "c"
-        list_items
-      when "s"
-        show_statistics
-      when "ls"
-        list_options
-      else
-        puts "That command is not executable"
-      end
+      user_prompt(game)
+    end
+  end
+
+  def user_prompt(game)
+    puts "How do you proceed? (enter 'ls' to list possible commands)"
+    print ">>"
+    input = gets.chomp.downcase
+    case input
+    when "d"
+      move_ship
+      update_fuel
+      game.lookup_location
+      self.turn_over = true
+    when "c"
+      list_items
+    when "s"
+      show_statistics
+    when "i"
+      use_item(game)
+    when "ls"
+      list_options
+    else
+      puts "That command is not executable"
     end
   end
 
@@ -117,7 +134,7 @@ class Astronaut
 
     def move_ship
       self.attributes[:location] += calculate_distance
-      puts "Driving..."
+      puts "Driving... #{attributes[:speed]}"
       sleep(1)
       check_location
     end
@@ -132,21 +149,36 @@ class Astronaut
 
     def pass_go
       self.attributes[:location] -= 10
-      collect_contracts
+      complete_orbit
     end
 
-    def collect_contracts
-      self.attributes[:funds] += 100
-      puts "The consortium rewards your progress! Your funds are now #{attributes[:funds]}."
+    def complete_orbit
+      self.attributes[:morale] += 10
+      puts "You have completed a full orbit! The sensation of progress boosts your morale to #{attributes[:morale]}."
     end
 
     def update_fuel
       self.attributes[:fuel] -= 2
     end
 
+    def use_item(game)
+      puts "Which item will you use?"
+      list_items
+      puts "0: cancel"
+      print ">>"
+      input = gets.to_i + 1
+      if (1..items.size).cover? input
+        chosen_item = items[input]
+        recipients = chosen_item.scope
+        recipients.each {|recipient| recipient.receive_event(chosen_item) }
+      else
+        user_prompt(game)
+      end
+    end
+
     def list_items
-      puts "You now hold: "
-      self.items.each {|item| puts item[:name] + "\n"}
+      puts "Your collection holds: "
+      self.items.each_with_index {|item, i| puts "\t" + (i + 1).to_s + ": " + item[:name] + "\n"}
     end
 
     def list_options
@@ -154,13 +186,14 @@ class Astronaut
         (d) - Drive ship
         (c) - List collection
         (s) - Ship statistics
+        (i) - Use item
       }
     end
 
     def show_statistics
       puts %Q{ Ship Statistics
         Current Sector is: #{attributes[:location]}
-        Funds are        : #{attributes[:funds]}
+        Morale is        : #{attributes[:morale]}
         Fuel is          : #{attributes[:fuel]}
         Collection holds : #{items.size} items
       }
@@ -197,8 +230,8 @@ class Sector
   Event = Struct.new(:name, :scope, :type, :attribute, :degree)
   def generate_event(game)
     events_array = [
-      ["an explosion", [game.current_astronaut], "modifier","funds", -200],
-      ["a magnetic field", game.astronauts, "modifier", "funds", 10],
+      ["an explosion", [game.current_astronaut], "modifier","morale", -20],
+      ["a magnetic field", game.astronauts, "modifier", "fuel", 10],
       ["a curse", [owner], "modifier", "fuel", -5]
     ] 
     num = rand(0..2)
@@ -258,9 +291,9 @@ def astronaut_generator(astronauts)
   return astronaut_array
 end
 
-$log = ["You are excited by the prospect of discovery.", "You have cautious optimism about what you might find.",
-        "This sector makes you feel the lonliness of space more acutely.", "You are weary of your travels",
-        "There is a sense of dread you cannot shake."]
+$early_log = CSV.read("captains-logs/initial-log.txt")
+$optimist_log = CSV.read("captains-logs/optimist-log.txt")
+$pessimist_log = CSV.read("captains-logs/pessimist-log.txt")
 
 puts "Time to go to Orbit"
 puts "How large would you like the map to be? (10 is best)"
@@ -270,3 +303,11 @@ puts "How many astronauts will be orbiting?"
 astronauts = gets.chomp.to_i
 game = Game.new(astronaut_generator(astronauts), map)
 game.start_game
+
+=begin
+  Current Issues:
+    astronaut.use_item does not actually use the item (maybe because receive_event is within the same class?)
+    astronaut.use_item does not eliminate item from collection
+    astronaut.use_item unnecessarily involves passing instance of game around as argument so that user_prompt can still call game.lookup_location
+
+=end
