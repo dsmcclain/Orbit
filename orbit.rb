@@ -50,19 +50,22 @@ class Game
     end
 end
 
-class Console
+module Console
+  INITIAL_LOG = CSV.read("captains-logs/initial-log.txt")
+  OPTIMIST_LOG = CSV.read("captains-logs/optimist-log.txt")
+  PESSIMIST_LOG = CSV.read("captains-logs/pessimist-log.txt")
 
-  def captains_log(day)
+  def captains_log(day, morale)
     string = "\n>>>> CAPTAIN'S LOG\n>>I have been orbiting for " +
              "#{day} " + (day == 1 ? "day." : "days.") + "\n>> "
     if day < 4
-      msg = $initial_log[day]
-    elsif attributes[:morale] > 75
+      msg = INITIAL_LOG[day]
+    elsif morale > 75
       entry = rand(0..4)
-      msg = $optimist_log[entry]
+      msg = OPTIMIST_LOG[entry]
     else
       entry = rand(0..4)
-      msg = $pessimist_log[entry]
+      msg = PESSIMIST_LOG[entry]
     end
     string.concat(msg[0])
     handwriting_effect(string)
@@ -118,13 +121,13 @@ class Console
 end
 
 class Astronaut
-  attr_accessor :name, :console, :attributes, :items, :turn_over
+  include Console
+  attr_accessor :name, :attributes, :items, :turn_over
 
   EVENTS_ARRAY = CSV.read("events.txt")
 
-  def initialize(name, console)
+  def initialize(name)
     @name = name
-    @console = console
     @attributes = {
       :location => 1,
       :morale => 100,
@@ -137,16 +140,16 @@ class Astronaut
 
   def start_turn(game)
     self.turn_over = false
-    console.captains_log(game.day)
-    console.warning("morale") if attributes[:morale] < 25
-    console.warning("fuel") if attributes[:fuel] < 10
+    captains_log(game.day, attributes[:morale])
+    warning("morale") if attributes[:morale] < 25
+    warning("fuel") if attributes[:fuel] < 10
     until turn_over
       user_choice(game)
     end
   end
 
   def user_choice(game)
-    case console.user_prompt
+    case user_prompt
     when "d"
       puts "Driving..."
       sleep(1)
@@ -154,13 +157,13 @@ class Astronaut
       move_ship(game)
       self.turn_over = true
     when "c"
-      console.list_items(items)
+      list_items(items)
     when "s"
-      console.show_statistics(attributes, items)
+      show_statistics(attributes, items)
     when "i"
       use_item(game)
     when "ls"
-      console.list_options
+      list_options
     else
       puts "That command is not executable"
     end
@@ -176,7 +179,7 @@ class Astronaut
 
   def retrieve_item(item)
     self.items << item
-    console.list_items(items)
+    list_items(items)
   end
 
   private
@@ -231,7 +234,7 @@ class Astronaut
 
     def select_item
       puts "Which item will you use?"
-      console.list_items(items)
+      list_items(items)
       puts "\t" + "0: cancel"
       print ">>"
       return gets.to_i - 1
@@ -315,16 +318,10 @@ def astronaut_generator(astronauts)
   astronauts.times do |x|
     puts "Enter Astronaut #{x+1}'s name: "
     name = gets.chomp
-    astronaut_array << Astronaut.new(name, Console.new)
+    astronaut_array << Astronaut.new(name)
   end
   return astronaut_array
 end
-
-$initial_log = CSV.read("captains-logs/initial-log.txt")
-$optimist_log = CSV.read("captains-logs/optimist-log.txt")
-$pessimist_log = CSV.read("captains-logs/pessimist-log.txt")
-
-
 
 title = CSV.read("title.txt")
 title.each {|line| puts line[0]}
