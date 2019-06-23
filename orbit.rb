@@ -31,7 +31,7 @@ class Game
     recipients = []
     recipients << send("#{event.scope}")
     recipients.flatten!
-    recipients.each {|recipient| recipient.receive_event(event) }
+    recipients.each {|recipient| recipient.receive_effect(event) }
   end
 
   def finish_game
@@ -156,12 +156,12 @@ class Astronaut
     end
   end
 
-  def receive_event(event)
-    var = event.attribute.to_sym
-    self.attributes[var] += event.degree.to_i
-    puts event.name
+  def receive_effect(effect)
+    var = effect.attribute.to_sym
+    self.attributes[var] += effect.degree.to_i
+    puts effect.message
     crossed_starting_line?
-    puts "#{self.name}'s #{event.attribute} is now #{self.attributes[var]}"
+    puts "#{self.name}'s #{effect.attribute} is now #{self.attributes[var]}"
   end
 
   def retrieve_item(item)
@@ -171,7 +171,7 @@ class Astronaut
 
   private
 
-    Event = Struct.new(:name, :scope, :attribute, :degree)
+    Event = Struct.new(:message, :scope, :attribute, :degree)
     def new_event(game)
       num = rand(0..3)
       event = Event.new(*EVENTS_ARRAY[num])
@@ -209,25 +209,29 @@ class Astronaut
     end
 
     def use_item(game)
-      puts "Which item will you use?"
-      console.list_items(items)
-      puts "0: cancel"
-      print ">>"
-      input = gets.to_i - 1
+      input = select_item
       if (0..items.size).cover? input
         chosen_item = items[input]
         self.items.delete_at(input)
-        recipients = chosen_item.scope
-        recipients.each {|recipient| recipient.receive_event(chosen_item) }
+        game.dispatch_effect(chosen_item)
       else
         user_choice(game)
       end
     end
 
+    def select_item
+      puts "Which item will you use?"
+      console.list_items(items)
+      puts "\t" + "0: cancel"
+      print ">>"
+      return gets.to_i - 1
+    end
 end
 
 class Sector 
   attr_accessor :location, :owner, :event, :item
+
+  ITEMS_ARRAY = CSV.read("items.txt")
 
   def initialize(location)
     @location = location
@@ -240,7 +244,7 @@ class Sector
     puts "You have arrived at sector #{location}!"
     sleep(1)
     claim_territory(astronaut)
-    # discover_item(game)
+    discover_item(astronaut)
   end
 
   def claim_territory(astronaut)
@@ -252,16 +256,13 @@ class Sector
     end
   end 
 
-  Item = Struct.new(:name, :scope, :type, :attribute, :degree)
-  def generate_item(game)
-    items_array = [
-      ["a glowing asteroid", [game.current_astronaut], "modifier","speed", 1]
-    ] 
-    self.item = Item.new(*items_array[0])
+  Item = Struct.new(:name, :message, :scope, :attribute, :degree)
+  def generate_item
+    self.item = Item.new(*ITEMS_ARRAY[0])
   end
 
-  def discover_item(game)
-    !self.item && generate_item(game)
+  def discover_item(astronaut)
+    !self.item && generate_item
     if self.item == -1
       puts "Out the window there is only emptiness"
     else
@@ -269,15 +270,12 @@ class Sector
       puts "Would you like to retrieve it?"
       choice = gets.chomp
       if choice.match(/(^y$|^yes$)/i)
-        game.current_astronaut.retrieve_item(self.item)
+        astronaut.retrieve_item(item)
         self.item = -1
       end
     end
   end
 end
-
-#################
-
 
 class Map
   attr_accessor :map
@@ -300,6 +298,8 @@ class Map
   end
 end
 
+#################
+
 def astronaut_generator(astronauts)
   astronaut_array = []
   astronauts.times do |x|
@@ -318,7 +318,7 @@ $pessimist_log = CSV.read("captains-logs/pessimist-log.txt")
 
 title = CSV.read("title.txt")
 title.each {|line| puts line[0]}
-puts "\n"*2 + "\s"*36 + "TIME TO ORBIT" + "\n"*2
+puts "\n"*4
 puts "How many astronauts will be orbiting?"
 print ">>"
 astronauts = gets.chomp.to_i
