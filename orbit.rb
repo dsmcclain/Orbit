@@ -27,18 +27,6 @@ class Game
     self.day += 1
   end
 
-  def lookup_location
-    location = current_astronaut.attributes[:location]
-    sector = map[location] || (raise StandardError, "location does not exist in map")
-    sector.arrive_at_sector(self)
-  end
-
-  def report_on_location(sector)
-    puts "You have arrived at sector #{sector.location}."
-    sector.claim_territory(self)
-    puts "At this sector there is #{sector.event}"
-  end
-
   def dispatch_effect(event)
     recipients = []
     recipients << send("#{event.scope}")
@@ -100,7 +88,7 @@ class Console
   def list_options
     puts %Q{>> Possible Commands: >>>>
       (d) - Drive ship
-      (c) - List collection
+      (c) - Collection
       (s) - Ship statistics
       (i) - Use item
     }
@@ -122,11 +110,13 @@ end
 class Astronaut
   attr_accessor :name, :console, :attributes, :items, :turn_over
 
+  EVENTS_ARRAY = CSV.read("events.txt")
+
   def initialize(name, console)
     @name = name
     @console = console
     @attributes = {
-      :location => 0,
+      :location => 1,
       :morale => 100,
       :fuel => 50,
       :speed => 1
@@ -148,9 +138,10 @@ class Astronaut
   def user_choice(game)
     case console.user_prompt
     when "d"
-      move_ship
-      update_fuel
-      game.lookup_location
+      puts "Driving..."
+      sleep(1)
+      new_event(game)
+      move_ship(game)
       self.turn_over = true
     when "c"
       console.list_items(items)
@@ -168,7 +159,8 @@ class Astronaut
   def receive_event(event)
     var = event.attribute.to_sym
     self.attributes[var] += event.degree.to_i
-    check_location
+    puts event.name
+    crossed_starting_line?
     puts "#{self.name}'s #{event.attribute} is now #{self.attributes[var]}"
   end
 
@@ -179,31 +171,35 @@ class Astronaut
 
   private
 
+    Event = Struct.new(:name, :scope, :attribute, :degree)
+    def new_event(game)
+      num = rand(0..3)
+      event = Event.new(*EVENTS_ARRAY[num])
+      game.dispatch_effect(event)
+    end
+
     def calculate_distance
       rand(0..5) + self.attributes[:speed]
     end
 
-    def move_ship
+    def move_ship(game)
       self.attributes[:location] += calculate_distance
-      puts "Driving..."
-      sleep(1)
-      check_location
+      crossed_starting_line?
+      update_fuel
+      sector = game.map.lookup_location(attributes[:location])
+      sector.arrive_at_sector(self)
     end
 
-    def check_location
+    def crossed_starting_line?
       if attributes[:location] < 1
         self.attributes[:location] += 10
       elsif attributes[:location] > 10
-        pass_go
+        complete_orbit
       end
     end
 
-    def pass_go
-      self.attributes[:location] -= 10
-      complete_orbit
-    end
-
     def complete_orbit
+      self.attributes[:location] -= 10
       self.attributes[:morale] += 10
       puts "You have completed a full orbit! The sensation of progress boosts your morale to #{attributes[:morale]}."
     end
@@ -240,34 +236,21 @@ class Sector
     @item
   end
 
-  def arrive_at_sector(game)
+  def arrive_at_sector(astronaut)
     puts "You have arrived at sector #{location}!"
     sleep(1)
-    claim_territory(game)
-    trigger_event(game)
-    discover_item(game)
+    claim_territory(astronaut)
+    # discover_item(game)
   end
 
-  def claim_territory(game)
+  def claim_territory(astronaut)
     if owner
       puts "This sector is owned by #{owner.name}"
     else
       puts "This sector was unclaimed. You claim it for yourself."
-      self.owner = game.current_astronaut
+      self.owner = astronaut
     end
   end 
-
-  Event = Struct.new(:name, :scope, :type, :attribute, :degree)
-  def generate_event
-    num = rand(0..2)
-    self.event = Event.new(*$events_array[num])
-  end
-
-  def trigger_event(game)
-    !self.event && generate_event
-    puts "This sector contains #{event.name}!"
-    game.dispatch_effect(event)
-  end
 
   Item = Struct.new(:name, :scope, :type, :attribute, :degree)
   def generate_item(game)
@@ -295,14 +278,26 @@ end
 
 #################
 
-def sector_generator(map_size)
-  puts "generating map of size #{map_size}"
-  map = {}
-  map_size.times do |location|
-    location += 1
-    map[location] = Sector.new(location)
+
+class Map
+  attr_accessor :map
+
+  def initialize
+    @map = generate_map
   end
-  return map
+
+  def generate_map
+    map = {}
+    10.times do |location|
+      location += 1
+      map[location] = Sector.new(location)
+    end
+    return map
+  end
+
+  def lookup_location(location)
+    map[location] || (raise StandardError, "location does not exist in map")
+  end
 end
 
 def astronaut_generator(astronauts)
@@ -319,14 +314,13 @@ $initial_log = CSV.read("captains-logs/initial-log.txt")
 $optimist_log = CSV.read("captains-logs/optimist-log.txt")
 $pessimist_log = CSV.read("captains-logs/pessimist-log.txt")
 
-$events_array = CSV.read("events.txt")
+
 
 title = CSV.read("title.txt")
 title.each {|line| puts line[0]}
-puts "\n" + "\s"*34 + "TIME TO ORBIT"
-map = sector_generator(10)
+puts "\n"*2 + "\s"*36 + "TIME TO ORBIT" + "\n"*2
 puts "How many astronauts will be orbiting?"
 print ">>"
 astronauts = gets.chomp.to_i
-game = Game.new(astronaut_generator(astronauts), map)
+game = Game.new(astronaut_generator(astronauts), Map.new)
 game.start_game

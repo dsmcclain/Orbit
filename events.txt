@@ -1,3 +1,4 @@
-an explosion,current_astronaut,modifier,morale,-20
-a magnetic field,astronauts,modifier,fuel,10
-a curse,current_astronaut,modifier,fuel,-5
+You suddenly experience an increased gravitational pull.  How can that be?,current_astronaut,morale,-5
+An odd noise is coming from inside the ship. Maybe you are imagining it?,current_astronaut,morale,-7
+Your electric toothbrush broke. Now it's just a toothbrush.,current_astronaut,morale,-10
+A piece of space debris strikes your ship and damages your fuel tank!,current_astronaut,fuel,-15
