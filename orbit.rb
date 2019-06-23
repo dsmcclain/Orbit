@@ -110,14 +110,13 @@ module Console
   def user_prompt
     puts "How will you proceed? (enter 'ls' to list possible commands)"
     print ">>"
-    return gets.chomp.downcase
+    gets.chomp.downcase
   end
 
 
   def warning(critical_attr)
     puts ">> DANGER >>>> Your #{critical_attr} is low. If it falls any further you may not survive!" 
   end
-
 end
 
 class Astronaut
@@ -148,27 +147,6 @@ class Astronaut
     end
   end
 
-  def user_choice(game)
-    case user_prompt
-    when "d"
-      puts "Driving..."
-      sleep(1)
-      new_event(game)
-      move_ship(game)
-      self.turn_over = true
-    when "c"
-      list_items(items)
-    when "s"
-      show_statistics(attributes, items)
-    when "i"
-      use_item(game)
-    when "ls"
-      list_options
-    else
-      puts "That command is not executable"
-    end
-  end
-
   def receive_effect(effect)
     var = effect.attribute.to_sym
     self.attributes[var] += effect.degree.to_i
@@ -183,24 +161,56 @@ class Astronaut
   end
 
   private
+    def user_choice(game)
+      case user_prompt
+      when "d"
+        drive(game)
+      when "c"
+        list_items(items)
+      when "s"
+        show_statistics(attributes, items)
+      when "i"
+        use_item(game)
+      when "ls"
+        list_options
+      else
+        puts "That command is not executable"
+      end
+    end
+    
+    def drive
+      puts "Driving..."
+      sleep(1)
+      game.dispatch_effect(new_event)
+      move_ship(game.map)
+      self.turn_over = true
+    end
 
+    def use_item(game)
+      chosen_item = choose_item
+      if chosen_item
+        game.dispatch_effect(chosen_item)
+      else
+        user_choice(game)
+      end
+    end
+    
     Event = Struct.new(:message, :scope, :attribute, :degree)
-    def new_event(game)
+    def new_event
       num = rand(0..3)
-      event = Event.new(*EVENTS_ARRAY[num])
-      game.dispatch_effect(event)
+      Event.new(*EVENTS_ARRAY[num])
+    end
+
+    def move_ship(map)
+      self.attributes[:location] += calculate_distance
+      crossed_starting_line?
+      daily_fuel
+      sector = map.lookup_location(attributes[:location])
+      sector.arrive_at_sector(self)
     end
 
     def calculate_distance
       rand(0..5) + self.attributes[:speed]
-    end
-
-    def move_ship(game)
-      self.attributes[:location] += calculate_distance
-      crossed_starting_line?
-      update_fuel
-      sector = game.map.lookup_location(attributes[:location])
-      sector.arrive_at_sector(self)
     end
 
     def crossed_starting_line?
@@ -211,33 +221,29 @@ class Astronaut
       end
     end
 
+    def daily_fuel
+      self.attributes[:fuel] -= 2
+    end
+
     def complete_orbit
       self.attributes[:location] -= 10
       self.attributes[:morale] += 10
       puts "You have completed a full orbit! The sensation of progress boosts your morale to #{attributes[:morale]}."
     end
 
-    def update_fuel
-      self.attributes[:fuel] -= 2
-    end
-
-    def use_item(game)
-      input = select_item
-      if (0..items.size).cover? input
-        chosen_item = items[input]
-        self.items.delete_at(input)
-        game.dispatch_effect(chosen_item)
-      else
-        user_choice(game)
-      end
-    end
-
-    def select_item
+    def choose_item
       puts "Which item will you use?"
       list_items(items)
       puts "\t" + "0: cancel"
       print ">>"
-      return gets.to_i - 1
+      input = gets.to_i - 1
+      if (0..items.size).cover? input
+        chosen_item = items[input]
+        self.items.delete_at(input)
+        chosen_item
+      else
+        nil
+      end
     end
 end
 
@@ -260,34 +266,36 @@ class Sector
     discover_item(astronaut)
   end
 
-  def claim_territory(astronaut)
-    if owner
-      puts "This sector is owned by #{owner.name}"
-    else
-      puts "This sector was unclaimed. You claim it for yourself."
-      self.owner = astronaut
+  private
+
+    def claim_territory(astronaut)
+      if owner
+        puts "This sector is owned by #{owner.name}"
+      else
+        puts "This sector was unclaimed. You claim it for yourself."
+        self.owner = astronaut
+      end
+    end 
+
+    Item = Struct.new(:name, :message, :scope, :attribute, :degree)
+    def generate_item
+      self.item = Item.new(*ITEMS_ARRAY[0])
     end
-  end 
 
-  Item = Struct.new(:name, :message, :scope, :attribute, :degree)
-  def generate_item
-    self.item = Item.new(*ITEMS_ARRAY[0])
-  end
-
-  def discover_item(astronaut)
-    !self.item && generate_item
-    if self.item == -1
-      puts "Out the window there is only emptiness"
-    else
-      puts "Out the window you see a #{item.name}."
-      puts "Would you like to retrieve it?"
-      choice = gets.chomp
-      if choice.match(/(^y$|^yes$)/i)
-        astronaut.retrieve_item(item)
-        self.item = -1
+    def discover_item(astronaut)
+      !self.item && generate_item
+      if self.item == -1
+        puts "Out the window there is only emptiness"
+      else
+        puts "Out the window you see a #{item.name}."
+        puts "Would you like to retrieve it?"
+        choice = gets.chomp
+        if choice.match(/(^y$|^yes$)/i)
+          astronaut.retrieve_item(item)
+          self.item = -1
+        end
       end
     end
-  end
 end
 
 class Map
@@ -311,7 +319,15 @@ class Map
   end
 end
 
-#################
+######GAME INITIALIZATION METHODS#########
+
+def welcome_screen
+  title = CSV.read("title.txt")
+  title.each {|line| puts line[0]}
+  puts "\n"*4
+  puts "How many astronauts will be orbiting?"
+  print ">>"
+end
 
 def astronaut_generator(astronauts)
   astronaut_array = []
@@ -323,11 +339,7 @@ def astronaut_generator(astronauts)
   return astronaut_array
 end
 
-title = CSV.read("title.txt")
-title.each {|line| puts line[0]}
-puts "\n"*4
-puts "How many astronauts will be orbiting?"
-print ">>"
+welcome_screen
 astronauts = gets.chomp.to_i
 game = Game.new(astronaut_generator(astronauts), Map.new)
 game.start_game
