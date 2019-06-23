@@ -53,17 +53,27 @@ end
 class Console
 
   def captains_log(day)
-    puts "\n>> CAPTAIN'S LOG >>>> I have been orbiting for #{day} " + (day == 1 ? "day." : "days.")
-    print ">> "
-    if day < 3
-      puts $initial_log[day]
+    string = "\n>>>> CAPTAIN'S LOG\n>>I have been orbiting for " +
+             "#{day} " + (day == 1 ? "day." : "days.") + "\n>> "
+    if day < 4
+      msg = $initial_log[day]
     elsif attributes[:morale] > 75
       entry = rand(0..4)
-      puts $optimist_log[entry]
+      msg = $optimist_log[entry]
     else
       entry = rand(0..4)
-      puts $pessimist_log[entry]
+      msg = $pessimist_log[entry]
     end
+    string.concat(msg[0])
+    handwriting_effect(string)
+    puts "\n"*2
+  end
+
+  def handwriting_effect(string)
+    string.each_char do |char|
+       print char
+       sleep(0.05)
+    end 
   end
 
   def list_items(items)
