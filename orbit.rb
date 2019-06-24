@@ -12,7 +12,6 @@ class Game
   end
 
   def start_game
-    print_introduction
     until astronauts.empty?
       new_turn
     end
@@ -33,15 +32,6 @@ class Game
 
   private
 
-    def print_introduction
-      puts "You have secured orbit around an unknown planet."
-      sleep(2)
-      puts "Your goal is to discover as much as you can while staying alive."
-      sleep(2)
-      puts "There are no guarantees."
-      sleep(2)
-    end
-
     def new_turn
       astronauts.each do |astronaut| 
         self.current_astronaut = astronaut
@@ -57,28 +47,6 @@ class Game
 end
 
 module Console
-  INITIAL_LOG = CSV.read("captains-logs/initial-log.txt")
-  OPTIMIST_LOG = CSV.read("captains-logs/optimist-log.txt")
-  PESSIMIST_LOG = CSV.read("captains-logs/pessimist-log.txt")
-
-  def captains_log(day, morale_level)
-    string = "\n>>>> CAPTAIN'S LOG\n>>I have been orbiting for " +
-             "#{day} " + (day == 1 ? "day." : "days.") + "\n>> "
-    if day < 4
-      msg = INITIAL_LOG[day]
-    elsif morale_level == "good"
-      entry = rand(0..4)
-      msg = OPTIMIST_LOG[entry]
-    else
-      entry = rand(0..4)
-      msg = PESSIMIST_LOG[entry]
-    end
-    string.concat(msg[0])
-    handwriting_effect(string)
-    puts "\n"*2
-    warning("morale") if morale_level == "critical"
-  end
-
   def handwriting_effect(string)
     string.each_char do |char|
        print char
@@ -106,46 +74,6 @@ module Console
   end
 end
 
-class Collection
-  attr_accessor :items
-
-  def initialize
-    @items = []
-  end
-
-  def add_item(item)
-    self.items << item
-  end
-
-  def remove_item(item)
-    self.items.delete_at(input)
-  end
-
-  def select_item
-    list_items
-    return nil if items.empty?
-    puts "Which item do you choose?"
-    print ">>"
-    input = gets.to_i - 1
-    if (0..items.size).cover? input
-      chosen_item = items[input]
-      remove_item(input)
-      chosen_item
-    else
-      nil
-    end
-  end
-
-  def list_items
-    if items.empty?
-      puts "Your collection is empty."
-    else
-      puts "Your collection holds: "
-      items.each_with_index {|item, i| puts "\t" + (i + 1).to_s + ": " + item[:name] + "\n"}
-    end
-  end
-end
-
 class Turn
   include Console
   attr_accessor :current_astronaut, :turn_over
@@ -156,10 +84,13 @@ class Turn
   end
 
   EVENTS_ARRAY = CSV.read("events.txt")
+  INITIAL_LOG = CSV.read("captains-logs/initial-log.txt")
+  OPTIMIST_LOG = CSV.read("captains-logs/optimist-log.txt")
+  PESSIMIST_LOG = CSV.read("captains-logs/pessimist-log.txt")
 
   def start_turn(astronaut, game)
     self.current_astronaut = astronaut
-    captains_log(game.day, current_astronaut.morale_level)
+    captains_log(game.day)
     warning("fuel") if current_astronaut.fuel_level == "critical"
     self.turn_over = false
     until turn_over
@@ -169,6 +100,29 @@ class Turn
   end
 
   private
+  
+    def captains_log(day)
+      string = "\n>>>> CAPTAIN'S LOG\n>>I have been orbiting for " +
+              "#{day} " + (day == 1 ? "day." : "days.") + "\n>> "
+      string.concat(log_message(day))
+      handwriting_effect(string)
+      puts "\n"*2
+      warning("morale") if current_astronaut.morale_level == "critical"
+    end
+
+    def log_message(day)
+      morale_level = current_astronaut.morale_level
+      if day < 4
+        msg = INITIAL_LOG[day]
+      elsif morale_level == "good"
+        entry = rand(0..4)
+        msg = OPTIMIST_LOG[entry]
+      else
+        entry = rand(0..4)
+        msg = PESSIMIST_LOG[entry]
+      end
+      msg[0]
+    end
 
     Event = Struct.new(:message, :scope, :attribute, :degree)
     def new_event
@@ -199,7 +153,6 @@ class Turn
       game.dispatch_effect(new_event)
       current_astronaut.move_ship(game.map)
       self.turn_over = true
-      puts turn_over
     end
 
     def use_item(game)
@@ -254,7 +207,7 @@ class Astronaut
   end
 
   def show_statistics
-    puts %Q{>> Ship Statistics >>>>
+    puts %Q{>> #{name}'s' Statistics >>>>
       Current Sector is: #{attributes[:location]}
       Speed is         : #{attributes[:speed]}
       Fuel is          : #{attributes[:fuel]}
@@ -319,6 +272,46 @@ class Astronaut
       puts "You have completed a full orbit! The sensation of progress provides a needed boost!"
       update_attributes(:morale, 10)
     end
+end
+
+class Collection
+  attr_accessor :items
+
+  def initialize
+    @items = []
+  end
+
+  def add_item(item)
+    self.items << item
+  end
+
+  def remove_item(index)
+    self.items.delete_at(index)
+  end
+
+  def select_item
+    list_items
+    return nil if items.empty?
+    puts "Which item do you choose?"
+    print ">>"
+    input = gets.to_i - 1
+    if (0..items.size).cover? input
+      chosen_item = items[input]
+      remove_item(input)
+      chosen_item
+    else
+      nil
+    end
+  end
+
+  def list_items
+    if items.empty?
+      puts "Your collection is empty."
+    else
+      puts "Your collection holds: "
+      items.each_with_index {|item, i| puts "\t" + (i + 1).to_s + ": " + item[:name] + "\n"}
+    end
+  end
 end
 
 class Sector 
@@ -402,6 +395,15 @@ end
 
 ######GAME INITIALIZATION METHODS#########
 
+def print_introduction
+  puts "You have secured orbit around an unknown planet."
+  sleep(2)
+  puts "Your goal is to discover as much as you can while staying alive."
+  sleep(2)
+  puts "There are no guarantees."
+  sleep(2)
+end
+
 def welcome_screen
   title = CSV.read("title.txt")
   title.each {|line| puts line[0]}
@@ -423,4 +425,5 @@ end
 welcome_screen
 astronauts = gets.chomp.to_i
 game = Game.new(astronaut_generator(astronauts), Map.new, Turn.new)
+print_introduction
 game.start_game
