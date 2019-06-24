@@ -12,7 +12,8 @@ class Game
 
   def start_game
     print_introduction
-    while day < 10
+    astronauts.each {|astronaut| astronaut.initiate_game(self)}
+    until astronauts.empty?
       new_turn
     end
     finish_game
@@ -22,7 +23,7 @@ class Game
     astronauts.each do |astronaut| 
       self.current_astronaut = astronaut
       puts "\n#{current_astronaut.name}'s turn!"
-      astronaut.start_turn(self)
+      astronaut.start_turn
     end
     self.day += 1
   end
@@ -32,6 +33,11 @@ class Game
     recipients << send("#{event.scope}")
     recipients.flatten!
     recipients.each {|recipient| recipient.receive_effect(event) }
+  end
+
+  def game_over(astronaut)
+    puts "#{astronaut.name} is out of the game"
+    self.astronauts.delete(astronaut)
   end
 
   def finish_game
@@ -121,7 +127,7 @@ end
 
 class Astronaut
   include Console
-  attr_accessor :name, :attributes, :items, :turn_over
+  attr_accessor :name, :attributes, :items, :turn_over, :game_over, :game
 
   EVENTS_ARRAY = CSV.read("events.txt")
 
@@ -129,30 +135,36 @@ class Astronaut
     @name = name
     @attributes = {
       :location => 1,
-      :morale => 100,
+      :morale => 90,
       :fuel => 50,
       :speed => 1
     }
     @items = []
     @turn_over = false
+    @game_over = false
+    @game
   end
 
-  def start_turn(game)
+  def initiate_game(game)
+    self.game = game
+  end
+
+  def start_turn
     self.turn_over = false
     captains_log(game.day, attributes[:morale])
     warning("morale") if attributes[:morale] < 25
     warning("fuel") if attributes[:fuel] < 10
     until turn_over
-      user_choice(game)
+      user_choice
     end
+    finish_turn
   end
 
   def receive_effect(effect)
-    var = effect.attribute.to_sym
-    self.attributes[var] += effect.degree.to_i
     puts effect.message
-    crossed_starting_line?
-    puts "#{self.name}'s #{effect.attribute} is now #{self.attributes[var]}"
+    attribute = effect.attribute.to_sym
+    degree = effect.degree.to_i
+    update_attribute(attribute, degree)
   end
 
   def retrieve_item(item)
@@ -161,16 +173,16 @@ class Astronaut
   end
 
   private
-    def user_choice(game)
+    def user_choice
       case user_prompt
       when "d"
-        drive(game)
+        drive
       when "c"
         list_items(items)
       when "s"
         show_statistics(attributes, items)
       when "i"
-        use_item(game)
+        use_item
       when "ls"
         list_options
       else
@@ -186,15 +198,15 @@ class Astronaut
       self.turn_over = true
     end
 
-    def use_item(game)
+    def use_item
       chosen_item = choose_item
       if chosen_item
         game.dispatch_effect(chosen_item)
       else
-        user_choice(game)
+        user_choice
       end
     end
-    
+
     Event = Struct.new(:message, :scope, :attribute, :degree)
     def new_event
       num = rand(0..3)
@@ -202,33 +214,20 @@ class Astronaut
     end
 
     def move_ship(map)
-      self.attributes[:location] += calculate_distance
-      crossed_starting_line?
-      daily_fuel
+      update_attribute(:location, calculate_distance)
+      update_attribute(:fuel, -2)
       sector = map.lookup_location(attributes[:location])
       sector.arrive_at_sector(self)
     end
 
+    def update_attribute(attribute, degree)
+      self.attributes[attribute] += degree
+      send("check_#{attribute}")
+      puts "#{self.name}'s #{attribute} is now #{attributes[attribute]}"
+    end
+
     def calculate_distance
       rand(0..5) + self.attributes[:speed]
-    end
-
-    def crossed_starting_line?
-      if attributes[:location] < 1
-        self.attributes[:location] += 10
-      elsif attributes[:location] > 10
-        complete_orbit
-      end
-    end
-
-    def daily_fuel
-      self.attributes[:fuel] -= 2
-    end
-
-    def complete_orbit
-      self.attributes[:location] -= 10
-      self.attributes[:morale] += 10
-      puts "You have completed a full orbit! The sensation of progress boosts your morale to #{attributes[:morale]}."
     end
 
     def choose_item
@@ -244,6 +243,42 @@ class Astronaut
       else
         nil
       end
+    end
+
+    def check_morale
+      if attributes[:morale] < 100
+        self.game_over = true
+      elsif attributes[:morale] > 100
+        self.attributes[:morale] = 100
+      end
+    end
+
+    def check_fuel
+      self.game_over = true if attributes[:fuel] <= 0
+    end
+
+    def check_location
+      if attributes[:location] < 1
+        self.attributes[:location] += 10
+      elsif attributes[:location] > 10
+        complete_orbit
+      end
+    end
+
+    def check_speed
+      if attributes[:speed] < 0
+        self.attributes[:morale] = 0
+      end
+    end
+
+    def complete_orbit
+      self.attributes[:location] -= 10
+      update_attributes(:morale, 10)
+      puts "You have completed a full orbit! The sensation of progress boosts your morale to #{attributes[:morale]}."
+    end
+
+    def finish_turn
+      game.game_over(self) if game_over
     end
 end
 
