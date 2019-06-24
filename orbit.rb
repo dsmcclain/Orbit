@@ -1,18 +1,18 @@
 require 'csv'
 
 class Game
-  attr_accessor :astronauts, :map, :current_astronaut, :day
+  attr_accessor :astronauts, :map, :turn, :current_astronaut, :day
 
-  def initialize(astronauts, map)
+  def initialize(astronauts, map, turn)
     @astronauts = astronauts
     @map = map
+    @turn = turn
     @current_astronaut
     @day = 0
   end
 
   def start_game
     print_introduction
-    astronauts.each {|astronaut| astronaut.initiate_game(self)}
     until astronauts.empty?
       new_turn
     end
@@ -46,7 +46,7 @@ class Game
       astronauts.each do |astronaut| 
         self.current_astronaut = astronaut
         puts "\n#{current_astronaut.name}'s turn!"
-        astronaut.start_turn
+        turn.start_turn(astronaut, self)
       end
       self.day += 1
     end
@@ -61,12 +61,12 @@ module Console
   OPTIMIST_LOG = CSV.read("captains-logs/optimist-log.txt")
   PESSIMIST_LOG = CSV.read("captains-logs/pessimist-log.txt")
 
-  def captains_log(day, morale)
+  def captains_log(day, morale_level)
     string = "\n>>>> CAPTAIN'S LOG\n>>I have been orbiting for " +
              "#{day} " + (day == 1 ? "day." : "days.") + "\n>> "
     if day < 4
       msg = INITIAL_LOG[day]
-    elsif morale > 75
+    elsif morale_level == "good"
       entry = rand(0..4)
       msg = OPTIMIST_LOG[entry]
     else
@@ -76,6 +76,7 @@ module Console
     string.concat(msg[0])
     handwriting_effect(string)
     puts "\n"*2
+    warning("morale") if morale_level == "critical"
   end
 
   def handwriting_effect(string)
@@ -85,6 +86,11 @@ module Console
     end 
   end
 
+  def user_prompt
+    puts "How will you proceed? (enter 'ls' to list possible commands)"
+    print ">>"
+    gets.chomp.downcase
+  end
 
   def list_options
     puts %Q{>> Possible Commands: >>>>
@@ -95,15 +101,8 @@ module Console
     }
   end
 
-  def user_prompt
-    puts "How will you proceed? (enter 'ls' to list possible commands)"
-    print ">>"
-    gets.chomp.downcase
-  end
-
-
   def warning(critical_attr)
-    puts ">> DANGER >>>> Your #{critical_attr} is low. If it falls any further you may not survive!" 
+    puts ">> DANGER >>>> Your #{critical_attr} is low. If it falls any further you might not survive!" 
   end
 end
 
@@ -119,7 +118,7 @@ class Collection
   end
 
   def remove_item(item)
-    self.items.delete(item)
+    self.items.delete_at(input)
   end
 
   def select_item
@@ -130,7 +129,7 @@ class Collection
     input = gets.to_i - 1
     if (0..items.size).cover? input
       chosen_item = items[input]
-      remove_item(chosen_item)
+      remove_item(input)
       chosen_item
     else
       nil
@@ -147,11 +146,78 @@ class Collection
   end
 end
 
-class Astronaut
+class Turn
   include Console
-  attr_accessor :name, :collection, :attributes, :turn_over, :game_over, :game
+  attr_accessor :current_astronaut, :turn_over
+
+  def initialize
+    @current_astronaut
+    @turn_over = false
+  end
 
   EVENTS_ARRAY = CSV.read("events.txt")
+
+  def start_turn(astronaut, game)
+    self.current_astronaut = astronaut
+    captains_log(game.day, current_astronaut.morale_level)
+    warning("fuel") if current_astronaut.fuel_level == "critical"
+    self.turn_over = false
+    until turn_over
+      user_choice(game)
+    end
+    finish_turn(game)
+  end
+
+  private
+
+    Event = Struct.new(:message, :scope, :attribute, :degree)
+    def new_event
+      num = rand(0..3)
+      Event.new(*EVENTS_ARRAY[num])
+    end
+
+    def user_choice(game)
+      case user_prompt
+      when "d"
+        drive(game)
+      when "c"
+        current_astronaut.collection.list_items
+      when "s"
+        current_astronaut.show_statistics
+      when "i"
+        use_item(game)
+      when "ls"
+        list_options
+      else
+        puts "That command is not executable"
+      end
+    end
+
+    def drive(game)
+      puts "Driving..."
+      sleep(1)
+      game.dispatch_effect(new_event)
+      current_astronaut.move_ship(game.map)
+      self.turn_over = true
+      puts turn_over
+    end
+
+    def use_item(game)
+      item = current_astronaut.collection.select_item
+      if item
+        game.dispatch_effect(item)
+      else
+        user_choice(game)
+      end
+    end
+
+    def finish_turn(game)
+      game.game_over(current_astronaut) if current_astronaut.game_over
+    end
+end
+
+class Astronaut
+  attr_accessor :name, :collection, :attributes, :game_over
 
   def initialize(name, collection)
     @name = name
@@ -162,24 +228,7 @@ class Astronaut
       :fuel => 50,
       :speed => 1
     }
-    @turn_over = false
     @game_over = false
-    @game
-  end
-
-  def initiate_game(game)
-    self.game = game
-  end
-
-  def start_turn
-    self.turn_over = false
-    captains_log(game.day, attributes[:morale])
-    warning("morale") if attributes[:morale] < 25
-    warning("fuel") if attributes[:fuel] < 10
-    until turn_over
-      user_choice
-    end
-    finish_turn
   end
 
   def receive_effect(effect)
@@ -187,6 +236,9 @@ class Astronaut
     attribute = effect.attribute.to_sym
     degree = effect.degree.to_i
     update_attribute(attribute, degree)
+    if attribute != :location
+      puts "Your #{attribute} is now #{attributes[attribute]}"
+    end
   end
 
   def retrieve_item(item)
@@ -194,75 +246,42 @@ class Astronaut
     collection.list_items
   end
 
+  def move_ship(map)
+    update_attribute(:location, calculate_distance)
+    update_attribute(:fuel, -2)
+    sector = map.lookup_location(attributes[:location])
+    sector.arrive_at_sector(self)
+  end
+
+  def show_statistics
+    puts %Q{>> Ship Statistics >>>>
+      Current Sector is: #{attributes[:location]}
+      Speed is         : #{attributes[:speed]}
+      Fuel is          : #{attributes[:fuel]}
+      Morale is        : #{attributes[:morale]}
+      Collection holds : #{collection.items.size} items
+    }
+  end
+
+  def morale_level
+    if attributes[:morale] > 75
+      "good"
+    elsif attributes[:morale].between?(26,75)
+      "bad"
+    else
+      "critical"
+    end
+  end
+
+  def fuel_level
+    attributes[:fuel] <= 15 ? "critical" : "good"
+  end
+
   private
-    def user_choice
-      case user_prompt
-      when "d"
-        drive
-      when "c"
-        collection.list_items
-      when "s"
-        show_statistics
-      when "i"
-        use_item
-      when "ls"
-        list_options
-      else
-        puts "That command is not executable"
-      end
-    end
-
-    def show_statistics
-      puts %Q{>> Ship Statistics >>>>
-        Current Sector is: #{attributes[:location]}
-        Speed is         : #{attributes[:speed]}
-        Fuel is          : #{attributes[:fuel]}
-        Morale is        : #{attributes[:morale]}
-        Collection holds : #{collection.items.size} items
-      }
-    end
-    
-    def drive
-      puts "Driving..."
-      sleep(1)
-      game.dispatch_effect(new_event)
-      move_ship(game.map)
-      self.turn_over = true
-    end
-
-    def use_item
-      item = collection.select_item
-      if item
-        game.dispatch_effect(item)
-      else
-        user_choice
-      end
-    end
-
-    Event = Struct.new(:message, :scope, :attribute, :degree)
-    def new_event
-      num = rand(0..3)
-      Event.new(*EVENTS_ARRAY[num])
-    end
-
-    def move_ship(map)
-      update_attribute(:location, calculate_distance)
-      update_attribute(:fuel, -2)
-      sector = map.lookup_location(attributes[:location])
-      sector.arrive_at_sector(self)
-    end
 
     def update_attribute(attribute, degree)
       self.attributes[attribute] += degree
       send("check_#{attribute}")
-      print_update(attribute)
-    end
-
-    def print_update(attribute)
-      if attribute.to_s != "location"
-        name = (game.current_astronaut == self ? "Your" : self.name + "'s'")
-        puts "#{name} #{attribute} is now #{attributes[attribute]}"
-      end
     end
 
     def calculate_distance
@@ -297,12 +316,8 @@ class Astronaut
 
     def complete_orbit
       self.attributes[:location] -= 10
+      puts "You have completed a full orbit! The sensation of progress provides a needed boost!"
       update_attributes(:morale, 10)
-      puts "You have completed a full orbit! The sensation of progress boosts your morale to #{attributes[:morale]}."
-    end
-
-    def finish_turn
-      game.game_over(self) if game_over
     end
 end
 
@@ -407,5 +422,5 @@ end
 
 welcome_screen
 astronauts = gets.chomp.to_i
-game = Game.new(astronaut_generator(astronauts), Map.new)
+game = Game.new(astronaut_generator(astronauts), Map.new, Turn.new)
 game.start_game
