@@ -19,15 +19,6 @@ class Game
     finish_game
   end
 
-  def new_turn
-    astronauts.each do |astronaut| 
-      self.current_astronaut = astronaut
-      puts "\n#{current_astronaut.name}'s turn!"
-      astronaut.start_turn
-    end
-    self.day += 1
-  end
-
   def dispatch_effect(event)
     recipients = []
     recipients << send("#{event.scope}")
@@ -40,10 +31,6 @@ class Game
     self.astronauts.delete(astronaut)
   end
 
-  def finish_game
-    puts "Game Over."
-  end
-
   private
 
     def print_introduction
@@ -53,6 +40,19 @@ class Game
       sleep(2)
       puts "There are no guarantees."
       sleep(2)
+    end
+
+    def new_turn
+      astronauts.each do |astronaut| 
+        self.current_astronaut = astronaut
+        puts "\n#{current_astronaut.name}'s turn!"
+        astronaut.start_turn
+      end
+      self.day += 1
+    end
+
+    def finish_game
+      puts "Game Over."
     end
 end
 
@@ -85,24 +85,6 @@ module Console
     end 
   end
 
-  def list_items(items)
-    if items.empty?
-      puts "Your collection is empty."
-    else
-      puts "Your collection holds: "
-      items.each_with_index {|item, i| puts "\t" + (i + 1).to_s + ": " + item[:name] + "\n"}
-    end
-  end
-
-  def show_statistics(attributes, items)
-    puts %Q{>> Ship Statistics >>>>
-      Current Sector is: #{attributes[:location]}
-      Speed is         : #{attributes[:speed]}
-      Fuel is          : #{attributes[:fuel]}
-      Morale is        : #{attributes[:morale]}
-      Collection holds : #{items.size} items
-    }
-  end
 
   def list_options
     puts %Q{>> Possible Commands: >>>>
@@ -125,21 +107,62 @@ module Console
   end
 end
 
+class Collection
+  attr_accessor :items
+
+  def initialize
+    @items = []
+  end
+
+  def add_item(item)
+    self.items << item
+  end
+
+  def remove_item(item)
+    self.items.delete(item)
+  end
+
+  def select_item
+    list_items
+    return nil if items.empty?
+    puts "Which item do you choose?"
+    print ">>"
+    input = gets.to_i - 1
+    if (0..items.size).cover? input
+      chosen_item = items[input]
+      remove_item(chosen_item)
+      chosen_item
+    else
+      nil
+    end
+  end
+
+  def list_items
+    if items.empty?
+      puts "Your collection is empty."
+    else
+      puts "Your collection holds: "
+      items.each_with_index {|item, i| puts "\t" + (i + 1).to_s + ": " + item[:name] + "\n"}
+    end
+  end
+
+end
+
 class Astronaut
   include Console
-  attr_accessor :name, :attributes, :items, :turn_over, :game_over, :game
+  attr_accessor :name, :collection, :attributes, :turn_over, :game_over, :game
 
   EVENTS_ARRAY = CSV.read("events.txt")
 
-  def initialize(name)
+  def initialize(name, collection)
     @name = name
+    @collection = collection
     @attributes = {
       :location => 1,
       :morale => 90,
       :fuel => 50,
       :speed => 1
     }
-    @items = []
     @turn_over = false
     @game_over = false
     @game
@@ -168,8 +191,8 @@ class Astronaut
   end
 
   def retrieve_item(item)
-    self.items << item
-    list_items(items)
+    collection.add_item(item)
+    collection.list_items
   end
 
   private
@@ -178,9 +201,9 @@ class Astronaut
       when "d"
         drive
       when "c"
-        list_items(items)
+        collection.list_items
       when "s"
-        show_statistics(attributes, items)
+        show_statistics
       when "i"
         use_item
       when "ls"
@@ -188,6 +211,16 @@ class Astronaut
       else
         puts "That command is not executable"
       end
+    end
+
+    def show_statistics
+      puts %Q{>> Ship Statistics >>>>
+        Current Sector is: #{attributes[:location]}
+        Speed is         : #{attributes[:speed]}
+        Fuel is          : #{attributes[:fuel]}
+        Morale is        : #{attributes[:morale]}
+        Collection holds : #{collection.items.size} items
+      }
     end
     
     def drive
@@ -199,9 +232,9 @@ class Astronaut
     end
 
     def use_item
-      chosen_item = choose_item
-      if chosen_item
-        game.dispatch_effect(chosen_item)
+      item = collection.select_item
+      if item
+        game.dispatch_effect(item)
       else
         user_choice
       end
@@ -223,30 +256,22 @@ class Astronaut
     def update_attribute(attribute, degree)
       self.attributes[attribute] += degree
       send("check_#{attribute}")
-      puts "#{self.name}'s #{attribute} is now #{attributes[attribute]}"
+      print_update(attribute)
+    end
+
+    def print_update(attribute)
+      if attribute.to_s != "location"
+        name = (game.current_astronaut == self ? "Your" : self.name + "'s'")
+        puts "#{name} #{attribute} is now #{attributes[attribute]}"
+      end
     end
 
     def calculate_distance
       rand(0..5) + self.attributes[:speed]
     end
 
-    def choose_item
-      puts "Which item will you use?"
-      list_items(items)
-      puts "\t" + "0: cancel"
-      print ">>"
-      input = gets.to_i - 1
-      if (0..items.size).cover? input
-        chosen_item = items[input]
-        self.items.delete_at(input)
-        chosen_item
-      else
-        nil
-      end
-    end
-
     def check_morale
-      if attributes[:morale] < 100
+      if attributes[:morale] <= 0
         self.game_over = true
       elsif attributes[:morale] > 100
         self.attributes[:morale] = 100
@@ -369,7 +394,7 @@ def astronaut_generator(astronauts)
   astronauts.times do |x|
     puts "Enter Astronaut #{x+1}'s name: "
     name = gets.chomp
-    astronaut_array << Astronaut.new(name)
+    astronaut_array << Astronaut.new(name, Collection.new)
   end
   return astronaut_array
 end
