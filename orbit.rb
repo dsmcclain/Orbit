@@ -145,7 +145,6 @@ class Collection
       items.each_with_index {|item, i| puts "\t" + (i + 1).to_s + ": " + item[:name] + "\n"}
     end
   end
-
 end
 
 class Astronaut
@@ -308,14 +307,13 @@ class Astronaut
 end
 
 class Sector 
-  attr_accessor :location, :owner, :event, :item
+  attr_accessor :location, :owner, :item
 
   ITEMS_ARRAY = CSV.read("items.txt")
 
   def initialize(location)
     @location = location
     @owner
-    @event
     @item
   end
 
@@ -345,15 +343,23 @@ class Sector
     def discover_item(astronaut)
       !self.item && generate_item
       if self.item == -1
-        puts "Out the window there is only emptiness"
+        no_item
       else
-        puts "Out the window you see a #{item.name}."
-        puts "Would you like to retrieve it?"
-        choice = gets.chomp
-        if choice.match(/(^y$|^yes$)/i)
-          astronaut.retrieve_item(item)
-          self.item = -1
-        end
+        show_item(astronaut)
+      end
+    end
+
+    def no_item
+      puts "Out the window there is only emptiness"
+    end
+
+    def show_item(astronaut)
+      puts "Out the window you see a #{item.name}."
+      puts "Would you like to retrieve it?"
+      choice = gets.chomp
+      if choice.match(/(^y$|^yes$)/i)
+        astronaut.retrieve_item(item)
+        self.item = -1
       end
     end
 end
