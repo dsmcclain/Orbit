@@ -46,12 +46,17 @@ class Game
     end
 end
 
-module Console
-  def handwriting_effect(string)
-    string.each_char do |char|
-       print char
-       sleep(0.05)
-    end 
+class Log 
+  INITIAL_LOG = CSV.read("captains-logs/initial-log.txt")
+  OPTIMIST_LOG = CSV.read("captains-logs/optimist-log.txt")
+  PESSIMIST_LOG = CSV.read("captains-logs/pessimist-log.txt")
+
+  def daily_log(day, morale)
+    string = "\n>>>> CAPTAIN'S LOG\n>>I have been orbiting for " +
+            "#{day} " + (day == 1 ? "day." : "days.") + "\n>> "
+    string.concat(log_message(day, morale))
+    puts_as_handwriting(string)
+    puts "\n"*2
   end
 
   def user_prompt
@@ -72,26 +77,48 @@ module Console
   def warning(critical_attr)
     puts ">> DANGER >>>> Your #{critical_attr} is low. If it falls any further you might not survive!" 
   end
+
+  private
+    def puts_as_handwriting(string)
+      string.each_char do |char|
+        print char
+        sleep(0.05)
+      end 
+    end
+    
+    def log_message(day, morale)
+      if day < 4
+        INITIAL_LOG[day][0]
+      elsif morale == "good"
+        choose_message(OPTIMIST_LOG)
+      else
+        choose_message(PESSIMIST_LOG)
+      end
+    end
+
+    def choose_message(log)
+      limit = log.size - 1
+      entry = rand(0..limit)
+      log[entry][0]
+    end
 end
 
 class Turn
-  include Console
-  attr_accessor :current_astronaut, :turn_over
+  attr_accessor :current_astronaut, :turn_over, :log
 
   def initialize
     @current_astronaut
     @turn_over = false
+    @log = Log.new
   end
 
   EVENTS_ARRAY = CSV.read("events.txt")
-  INITIAL_LOG = CSV.read("captains-logs/initial-log.txt")
-  OPTIMIST_LOG = CSV.read("captains-logs/optimist-log.txt")
-  PESSIMIST_LOG = CSV.read("captains-logs/pessimist-log.txt")
 
   def start_turn(astronaut, game)
     self.current_astronaut = astronaut
-    captains_log(game.day)
-    warning("fuel") if current_astronaut.fuel_level == "critical"
+    log.daily_log(game.day, current_astronaut.morale_level)
+    log.warning("morale") if current_astronaut.morale_level == "critical"
+    log.warning("fuel") if current_astronaut.fuel_level == "critical"
     self.turn_over = false
     until turn_over
       user_choice(game)
@@ -100,30 +127,6 @@ class Turn
   end
 
   private
-  
-    def captains_log(day)
-      string = "\n>>>> CAPTAIN'S LOG\n>>I have been orbiting for " +
-              "#{day} " + (day == 1 ? "day." : "days.") + "\n>> "
-      string.concat(log_message(day))
-      handwriting_effect(string)
-      puts "\n"*2
-      warning("morale") if current_astronaut.morale_level == "critical"
-    end
-
-    def log_message(day)
-      morale_level = current_astronaut.morale_level
-      if day < 4
-        msg = INITIAL_LOG[day]
-      elsif morale_level == "good"
-        entry = rand(0..4)
-        msg = OPTIMIST_LOG[entry]
-      else
-        entry = rand(0..4)
-        msg = PESSIMIST_LOG[entry]
-      end
-      msg[0]
-    end
-
     Event = Struct.new(:message, :scope, :attribute, :degree)
     def new_event
       num = rand(0..3)
@@ -131,7 +134,7 @@ class Turn
     end
 
     def user_choice(game)
-      case user_prompt
+      case log.user_prompt
       when "d"
         drive(game)
       when "c"
@@ -141,7 +144,7 @@ class Turn
       when "i"
         use_item(game)
       when "ls"
-        list_options
+        log.list_options
       else
         puts "That command is not executable"
       end
@@ -156,12 +159,11 @@ class Turn
     end
 
     def use_item(game)
-      item = current_astronaut.collection.select_item
-      if item
-        game.dispatch_effect(item)
-      else
-        user_choice(game)
-      end
+      item_chosen ? game.dispatch_effect(item_chosen) : user_choice(game)
+    end
+
+    def item_chosen
+      current_astronaut.collection.select_item
     end
 
     def finish_turn(game)
@@ -270,7 +272,7 @@ class Astronaut
     def complete_orbit
       self.attributes[:location] -= 10
       puts "You have completed a full orbit! The sensation of progress provides a needed boost!"
-      update_attributes(:morale, 10)
+      update_attribute(:morale, 10)
     end
 end
 
