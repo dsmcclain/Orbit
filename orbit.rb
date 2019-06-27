@@ -453,7 +453,3 @@ number_of_players = gets.chomp.to_i
 game = Game.new(astronaut_generator(number_of_players), Turn.new(Map.new))
 print_introduction
 game.start_game
-
-##when exactly a player is removed
-##using items ends turn
-##output when player eliminated & game ends
