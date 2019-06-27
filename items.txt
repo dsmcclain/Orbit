@@ -1,1 +1,1 @@
-a glowing asteroid,The asteroid emits a blinding flash of light. It is now inert rock.,current_astronaut,fuel,5
+a glowing asteroid,The asteroid emits a blinding flash of light. It is now inert rock.,current astronaut,fuel,5

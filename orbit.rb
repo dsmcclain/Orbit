@@ -1,46 +1,37 @@
 require 'csv'
 
 class Game
-  attr_accessor :astronauts, :map, :turn, :current_astronaut, :day
+  attr_accessor :astronauts, :turn
 
-  def initialize(astronauts, map, turn)
+  def initialize(astronauts, turn)
     @astronauts = astronauts
-    @map = map
     @turn = turn
-    @current_astronaut
-    @day = 0
   end
 
   def start_game
     until astronauts.empty?
-      new_turn
+      turn.play(self)
     end
     finish_game
   end
 
-  def dispatch_effect(event)
-    recipients = []
-    recipients << send("#{event.scope}")
-    recipients.flatten!
-    recipients.each {|recipient| recipient.receive_effect(event) }
-  end
-
-  def game_over(astronaut)
+  def remove_astronaut(astronaut)
     puts "#{astronaut.name} is out of the game"
     self.astronauts.delete(astronaut)
   end
 
-  private
-
-    def new_turn
-      astronauts.each do |astronaut| 
-        self.current_astronaut = astronaut
-        puts "\n#{current_astronaut.name}'s turn!"
-        turn.start_turn(astronaut, self)
-      end
-      self.day += 1
+  def dispatch_effect(event, current_astronaut)
+    recipients = case event.scope
+    when "current astronaut"
+      [current_astronaut]
+    when "all"
+      astronauts
     end
+    puts event.message
+    recipients.each {|recipient| recipient.receive_effect(event) }
+  end
 
+  private
     def finish_game
       puts "Game Over."
     end
@@ -60,7 +51,7 @@ class Log
   end
 
   def user_prompt
-    puts "How will you proceed? (enter 'ls' to list possible commands)"
+    puts "How will you proceed? (enter 'p' to list possible commands)"
     print ">>"
     gets.chomp.downcase
   end
@@ -104,71 +95,99 @@ class Log
 end
 
 class Turn
-  attr_accessor :current_astronaut, :turn_over, :log
+  attr_accessor :map, :current_astronaut, :turn_over, :day, :log
 
-  def initialize
+  def initialize(map)
+    @map = map
     @current_astronaut
     @turn_over = false
+    @day = 0
     @log = Log.new
   end
 
   EVENTS_ARRAY = CSV.read("events.txt")
 
+  def play(game)
+    game.astronauts.each do |astronaut|
+      puts "\n#{astronaut.name}'s turn!"
+      start_turn(astronaut, game)
+      game.remove_astronaut(current_astronaut) if current_astronaut.game_over
+    end
+    self.day += 1
+  end
+
   def start_turn(astronaut, game)
     self.current_astronaut = astronaut
-    log.daily_log(game.day, current_astronaut.morale_level)
-    log.warning("morale") if current_astronaut.morale_level == "critical"
-    log.warning("fuel") if current_astronaut.fuel_level == "critical"
+    log.daily_log(day, current_astronaut.morale_level)
+    look_for_warnings
     self.turn_over = false
     until turn_over
-      user_choice(game)
+      get_input(game)
     end
-    finish_turn(game)
   end
 
   private
+   ##DOES NOT BELONG
     Event = Struct.new(:message, :scope, :attribute, :degree)
     def new_event
       num = rand(0..3)
       Event.new(*EVENTS_ARRAY[num])
     end
 
-    def user_choice(game)
+    def look_for_warnings
+      log.warning("morale") if current_astronaut.morale_level == "critical"
+      log.warning("fuel") if current_astronaut.fuel_level == "critical"
+    end
+
+    def get_input(game)
       case log.user_prompt
       when "d"
-        drive(game)
+        puts "Driving..."
+        drive(map, game)
+      when "f"
+        puts "Drifting..."
+        drift(map, game)
       when "c"
         current_astronaut.collection.list_items
       when "s"
         current_astronaut.show_statistics
       when "i"
         use_item(game)
-      when "ls"
+      when "p"
         log.list_options
       else
         puts "That command is not executable"
       end
     end
 
-    def drive(game)
-      puts "Driving..."
+    def drive(map, game)
       sleep(1)
-      game.dispatch_effect(new_event)
-      current_astronaut.move_ship(game.map)
+      game.dispatch_effect(new_event, current_astronaut)
+      current_astronaut.drive_ship(map)
+      self.turn_over = true
+    end
+
+    def drift(map, game)
+      sleep(1)
+      game.dispatch_effect(new_event, current_astronaut)
+      current_astronaut.drift_ship(map)
       self.turn_over = true
     end
 
     def use_item(game)
-      item_chosen ? game.dispatch_effect(item_chosen) : user_choice(game)
+      item = item_chosen
+      if item
+        game.dispatch_effect(item, current_astronaut)
+        self.turn_over = true
+      else 
+        get_input(game)
+      end
     end
 
     def item_chosen
       current_astronaut.collection.select_item
     end
 
-    def finish_turn(game)
-      game.game_over(current_astronaut) if current_astronaut.game_over
-    end
 end
 
 class Astronaut
@@ -187,13 +206,9 @@ class Astronaut
   end
 
   def receive_effect(effect)
-    puts effect.message
     attribute = effect.attribute.to_sym
     degree = effect.degree.to_i
     update_attribute(attribute, degree)
-    if attribute != :location
-      puts "Your #{attribute} is now #{attributes[attribute]}"
-    end
   end
 
   def retrieve_item(item)
@@ -201,13 +216,15 @@ class Astronaut
     collection.list_items
   end
 
-  def move_ship(map)
-    update_attribute(:location, calculate_distance)
-    update_attribute(:fuel, -2)
-    sector = map.lookup_location(attributes[:location])
-    sector.arrive_at_sector(self)
+  def drive_ship(map)
+    move_ship(map, -4, calculate_distance)
   end
 
+  def drift_ship(map)
+    move_ship(map, -1, 1)
+  end
+
+   ##DOES NOT BELONG
   def show_statistics
     puts %Q{>> #{name}'s' Statistics >>>>
       Current Sector is: #{attributes[:location]}
@@ -233,6 +250,13 @@ class Astronaut
   end
 
   private
+
+    def move_ship(map, fuel_cost, distance)
+      update_attribute(:fuel, fuel_cost)
+      update_attribute(:location, distance)
+      sector = map.lookup_location(attributes[:location])
+      sector.arrive_at_sector(self)
+    end
 
     def update_attribute(attribute, degree)
       self.attributes[attribute] += degree
@@ -425,7 +449,11 @@ def astronaut_generator(astronauts)
 end
 
 welcome_screen
-astronauts = gets.chomp.to_i
-game = Game.new(astronaut_generator(astronauts), Map.new, Turn.new)
+number_of_players = gets.chomp.to_i
+game = Game.new(astronaut_generator(number_of_players), Turn.new(Map.new))
 print_introduction
 game.start_game
+
+##when exactly a player is removed
+##using items ends turn
+##output when player eliminated & game ends
