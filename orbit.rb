@@ -59,9 +59,10 @@ class Log
   def list_options
     puts %Q{>> Possible Commands: >>>>
       (d) - Drive ship
+      (f) - Drift ship
+      (i) - Use item
       (c) - Collection
       (s) - Ship statistics
-      (i) - Use item
     }
   end
 
@@ -127,7 +128,6 @@ class Turn
   end
 
   private
-   ##DOES NOT BELONG
     Event = Struct.new(:message, :scope, :attribute, :degree)
     def new_event
       num = rand(0..3)
