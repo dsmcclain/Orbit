@@ -377,18 +377,15 @@ class Sector
   private
 
     Item = Struct.new(:name, :message, :scope, :attribute, :degree)
+
     def generate_item
       selection = rand(0..10)
       self.item = Item.new(*ITEMS_ARRAY[selection])
     end
 
     def discover_item(astronaut)
-      !self.item && generate_item
-      if self.item == -1
-        no_item
-      else
-        show_item(astronaut)
-      end
+      generate_item unless self.item
+      self.item == "empty" ? no_item : show_item(astronaut)
     end
 
     def no_item
@@ -405,7 +402,7 @@ class Sector
       end
       if choice.match(/(^y$|^yes$)/i)
         astronaut.retrieve_item(item)
-        self.item = -1
+        self.item = "empty"
       end
     end
 
@@ -447,8 +444,7 @@ def print_introduction
 end
 
 def welcome_screen
-  title = CSV.read("title.txt")
-  title.each {|line| puts line[0]}
+  title = CSV.read("title.txt").each {|line| puts line[0]}
   puts "\n"*4
   puts "How many astronauts will be orbiting?"
   print ">>"
