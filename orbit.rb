@@ -106,7 +106,7 @@ class Turn
     @log = Log.new
   end
 
-  EVENTS_ARRAY = CSV.read("events.txt")
+  EVENTS_ARRAY = CSV.read("events.txt", col_sep: '|')
 
   def play(game)
     game.astronauts.each do |astronaut|
@@ -361,7 +361,7 @@ end
 class Sector 
   attr_accessor :location, :item
 
-  ITEMS_ARRAY = CSV.read("items.txt")
+  ITEMS_ARRAY = CSV.read("items.txt", col_sep: '|')
 
   def initialize(location)
     @location = location
