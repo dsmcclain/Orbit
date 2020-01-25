@@ -130,7 +130,7 @@ class Turn
   private
     Event = Struct.new(:message, :scope, :attribute, :degree)
     def new_event
-      num = rand(0..3)
+      num = rand(0..11)
       Event.new(*EVENTS_ARRAY[num])
     end
 
@@ -200,7 +200,8 @@ class Astronaut
       :location => 1,
       :morale => 90,
       :fuel => 50,
-      :speed => 1
+      :speed => 1,
+      :sectors => [1]
     }
     @game_over = false
   end
@@ -232,6 +233,7 @@ class Astronaut
       Fuel is          : #{attributes[:fuel]}
       Morale is        : #{attributes[:morale]}
       Collection holds : #{collection.items.size} items
+      Sectors explored : #{pp attributes[:sectors]}
     }
   end
 
@@ -254,6 +256,8 @@ class Astronaut
     def move_ship(map, fuel_cost, distance)
       update_attribute(:fuel, fuel_cost)
       update_attribute(:location, distance)
+      mark_as_explored(attributes[:location])
+      victory_condition?
       sector = map.lookup_location(attributes[:location])
       sector.arrive_at_sector(self)
     end
@@ -261,6 +265,20 @@ class Astronaut
     def update_attribute(attribute, degree)
       self.attributes[attribute] += degree
       send("check_#{attribute}")
+    end
+
+    def mark_as_explored(location)
+      if attributes[:sectors].include?(location)
+        puts "You have already explored this sector."
+      else
+        self.attributes[:sectors] << location
+        self.attributes[:sectors].sort!
+        puts "This sector is new to you."
+      end
+    end
+
+    def victory_condition?
+      puts "You have explored every sector!" if attributes[:sectors].size == 20
     end
 
     def calculate_distance
@@ -281,8 +299,8 @@ class Astronaut
 
     def check_location
       if attributes[:location] < 1
-        self.attributes[:location] += 10
-      elsif attributes[:location] > 10
+        self.attributes[:location] += 20
+      elsif attributes[:location] > 20
         complete_orbit
       end
     end
@@ -294,9 +312,9 @@ class Astronaut
     end
 
     def complete_orbit
-      self.attributes[:location] -= 10
+      self.attributes[:location] -= 20
       puts "You have completed a full orbit! The sensation of progress provides a needed boost!"
-      update_attribute(:morale, 10)
+      update_attribute(:morale, 15)
     end
 end
 
@@ -341,37 +359,27 @@ class Collection
 end
 
 class Sector 
-  attr_accessor :location, :owner, :item
+  attr_accessor :location, :item
 
   ITEMS_ARRAY = CSV.read("items.txt")
 
   def initialize(location)
     @location = location
-    @owner
     @item
   end
 
   def arrive_at_sector(astronaut)
     puts "You have arrived at sector #{location}!"
     sleep(1)
-    claim_territory(astronaut)
     discover_item(astronaut)
   end
 
   private
 
-    def claim_territory(astronaut)
-      if owner
-        puts "This sector is owned by #{owner.name}"
-      else
-        puts "This sector was unclaimed. You claim it for yourself."
-        self.owner = astronaut
-      end
-    end 
-
     Item = Struct.new(:name, :message, :scope, :attribute, :degree)
     def generate_item
-      self.item = Item.new(*ITEMS_ARRAY[0])
+      selection = rand(0..10)
+      self.item = Item.new(*ITEMS_ARRAY[selection])
     end
 
     def discover_item(astronaut)
@@ -388,13 +396,21 @@ class Sector
     end
 
     def show_item(astronaut)
-      puts "Out the window you see a #{item.name}."
+      puts "Out the window you see #{item.name}."
       puts "Would you like to retrieve it?"
       choice = gets.chomp
+      until yesno?(choice)
+        puts "Please enter yes or no"
+        choice = gets.chomp
+      end
       if choice.match(/(^y$|^yes$)/i)
         astronaut.retrieve_item(item)
         self.item = -1
       end
+    end
+
+    def yesno?(input)
+      input.match(/(^y$|^yes$)/i) || input.match(/(^n$|^no$)/i)
     end
 end
 
@@ -407,7 +423,7 @@ class Map
 
   def generate_map
     map = {}
-    10.times do |location|
+    20.times do |location|
       location += 1
       map[location] = Sector.new(location)
     end
