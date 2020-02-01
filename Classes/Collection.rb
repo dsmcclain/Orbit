@@ -5,23 +5,26 @@ class Collection
     @items = []
   end
 
-  def select_items
-    if items.empty
+  def list_items
+    if items.empty?
       puts "Your collection is empty."
     else
-      list_items_and_choose
+      puts "Your collection holds: "
+      items.each_with_index {|item, i| puts "\t" + (i + 1).to_s + ": " + item[:name] + "\n"}
     end
   end
 
-  def list_items_and_choose
-    puts "Your collection holds: "
-    items.each_with_index {|item, i| puts "\t" + (i + 1).to_s + ": " + item[:name] + "\n"}
+  def select_item
+    list_items
+    puts "Which item do you choose?"
+    print ">>"
+    input = gets.to_i - 1
     if (0..items.size).cover? input
       chosen_item = items[input]
       remove_item(input)
       chosen_item
     else
-      nil
+      puts "That item doesn't exist."
     end
   end
 
