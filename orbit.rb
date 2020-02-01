@@ -1,4 +1,5 @@
-require_relative 'game.rb'
+Dir["./Classes/*"].each {|file| require file}
+require 'csv'
 
 def welcome_to_orbit
   print_welcome_screen
