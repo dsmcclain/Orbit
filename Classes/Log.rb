@@ -8,7 +8,7 @@ class Log
   PESSIMIST_LOG = CSV.read("captains-logs/pessimist-log.txt")
 
   def initialize
-    @sentiments = File.readlines("sentiments.txt", chomp:true)
+    @morale = File.readlines("morale.txt", chomp:true)
   end
 
   def daily_log(day, morale)
@@ -49,7 +49,7 @@ class Log
     
     def log_message(day, morale)
       return INITIAL_LOG[day][0] if day < 4
-      morale == "good" ? choose_message(OPTIMIST_LOG) : choose_message(PESSIMIST_LOG)
+      morale > 17 ? choose_message(OPTIMIST_LOG) : choose_message(PESSIMIST_LOG)
     end
 
     def choose_message(log)

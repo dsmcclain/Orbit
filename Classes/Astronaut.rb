@@ -6,7 +6,7 @@ class Astronaut
     @collection = collection
     @attributes = {
       :location => 1,
-      :morale => 90,
+      :morale => 16,
       :fuel => 50,
       :speed => 1,
       :sectors => [1]
@@ -33,31 +33,19 @@ class Astronaut
     move_ship(map, -1, 1)
   end
 
-  def show_statistics(sentiments)
+  def show_statistics(morale_options)
     puts %Q{>> #{name}'s' Statistics >>>>
       Current Sector is: #{attributes[:location]}
       Speed is         : #{attributes[:speed]}
       Fuel is          : #{attributes[:fuel]}
-      Morale is        : #{attributes[:morale]}
+      Morale is        : #{check_morale(morale_options)}
       Collection holds : #{collection.items.size} items
       Sectors explored : #{pp attributes[:sectors]}
-      Sentiment        : #{check_sentiment(sentiments)}
     }
   end
 
-  def check_sentiment(sentiments)
-    mood = attributes[:morale] / 10
-    sentiments[mood]
-  end
-
-  def morale_level
-    if attributes[:morale] > 75
-      "good"
-    elsif attributes[:morale].between?(26,75)
-      "bad"
-    else
-      "critical"
-    end
+  def check_morale(morale_options)
+    morale_options[attributes[:morale]]
   end
 
   def fuel_level
@@ -99,10 +87,8 @@ class Astronaut
     end
 
     def check_morale
-      if attributes[:morale] <= 0
+      if attributes[:morale] < 0 || attributes[:morale] > 32
         self.game_over = true
-      elsif attributes[:morale] > 100
-        self.attributes[:morale] = 100
       end
     end
 
@@ -127,6 +113,6 @@ class Astronaut
     def complete_orbit
       self.attributes[:location] -= 20
       puts "You have completed a full orbit! The sensation of progress provides a needed boost!"
-      update_attribute(:morale, 15)
+      update_attribute(:morale, 5)
     end
 end

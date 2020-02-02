@@ -22,7 +22,7 @@ class Turn
 
   def start_turn(astronaut, game)
     self.current_astronaut = astronaut
-    log.daily_log(day, current_astronaut.morale_level)
+    log.daily_log(day, current_astronaut.attributes[:morale])
     look_for_warnings
     self.turn_over = false
     until turn_over
@@ -38,7 +38,7 @@ class Turn
     end
 
     def look_for_warnings
-      log.warning("morale") if current_astronaut.morale_level == "critical"
+      log.warning("morale") if current_astronaut.attributes[:morale] < 5
       log.warning("fuel") if current_astronaut.fuel_level == "critical"
     end
 
