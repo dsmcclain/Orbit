@@ -9,7 +9,7 @@ class Turn
     @log = Log.new
   end
 
-  EVENTS_ARRAY = CSV.read("events.txt", col_sep: '|')
+  EVENTS_ARRAY = CSV.read("depressing_events.txt", col_sep: '|')
 
   def play(game)
     game.astronauts.each do |astronaut|
@@ -31,9 +31,11 @@ class Turn
   end
 
   private
+
     Event = Struct.new(:message, :scope, :attribute, :degree)
+
     def new_event
-      num = rand(0..11)
+      num = rand(0..10)
       Event.new(*EVENTS_ARRAY[num])
     end
 
@@ -53,7 +55,7 @@ class Turn
       when "c"
         current_astronaut.collection.list_items
       when "s"
-        current_astronaut.show_statistics(log.sentiments)
+        current_astronaut.show_statistics(log.morale_options)
       when "i"
         use_item(game)
       when "p"

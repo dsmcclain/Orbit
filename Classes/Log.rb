@@ -1,14 +1,14 @@
 require 'csv'
 
 class Log 
-  attr_accessor :sentiments
+  attr_accessor :morale_options
 
   INITIAL_LOG = CSV.read("captains-logs/initial-log.txt")
   OPTIMIST_LOG = CSV.read("captains-logs/optimist-log.txt")
   PESSIMIST_LOG = CSV.read("captains-logs/pessimist-log.txt")
 
   def initialize
-    @morale = File.readlines("morale.txt", chomp:true)
+    @morale_options = File.readlines("morale.txt", chomp:true)
   end
 
   def daily_log(day, morale)

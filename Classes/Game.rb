@@ -19,12 +19,7 @@ class Game
   end
 
   def dispatch_effect(event, current_astronaut)
-    recipients = case event.scope
-    when "current astronaut"
-      [current_astronaut]
-    when "all"
-      astronauts
-    end
+    recipients = event.scope == 1 ? [current_astronaut] : astronauts
     puts event.message
     recipients.each {|recipient| recipient.receive_effect(event) }
   end

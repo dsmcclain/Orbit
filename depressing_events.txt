@@ -1,0 +1,9 @@
+The planet's gravitational pull is suddenly more intense.  How can that be?|2|morale|-2
+An odd noise is coming from inside the ship. Maybe you are imagining it?|1|morale|-5
+Your electric toothbrush broke. Now it's just a toothbrush.|1|morale|-4
+A piece of space debris strikes your ship and damages your fuel tank!|1|fuel|-4
+Your mind drifts and you lose hours from your day without even realizing it's happening|1|morale|-2
+Your ship's navigational system broke and required extra resources to repair|1|fuel|-3
+Your inventory of food is vanishing at a rapid rate|1|morale|-1
+You are seeing a lot of odd debris out the window. Your paranoia is increasing|1|morale|-3
+A surge in radiation! Very dangerous!|2|morale|-2

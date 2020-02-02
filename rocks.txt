@@ -1,0 +1,5 @@
+it has a powerful magnetism that has reduced your ship speed|1|speed|-1
+it contains elements that can be converted to fuel for your ship.|1|fuel|5
+it contains elements that can be used to increase ship speed.|1|speed|1
+it is just a carbon-based lump. How discouraging.|1|morale|-1
+it contains the fossilized remains of past civilizations!|1|morale|6

@@ -1,0 +1,6 @@
+blue|you are overcome by confusion and memory-loss.|1|morale|-5
+blue|you experience a flood of euphoria.|1|morale|5
+red|you notice your ship accelerating.|1|speed|2
+red|you sense your ship slowing down considerably.|1|speed|-2
+yellow|your fuel supplies inexplicably increase.|1|fuel|10
+yellow|your ship seems to consume fuel at a rapid rate.|1|fuel|-10

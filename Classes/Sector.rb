@@ -1,11 +1,9 @@
 class Sector 
   attr_accessor :location, :item
 
-  ITEMS_ARRAY = CSV.read("items.txt", col_sep: '|')
-
-  def initialize(location)
+  def initialize(location, item)
     @location = location
-    @item
+    @item = item
   end
 
   def arrive_at_sector(astronaut)
@@ -15,13 +13,6 @@ class Sector
   end
 
   private
-
-    Item = Struct.new(:name, :message, :scope, :attribute, :degree)
-
-    def generate_item
-      selection = rand(0..10)
-      self.item = Item.new(*ITEMS_ARRAY[selection])
-    end
 
     def discover_item(astronaut)
       generate_item unless self.item

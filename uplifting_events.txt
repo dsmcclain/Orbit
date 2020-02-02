@@ -1,0 +1,7 @@
+Narrowly dodged some space debris!|1|morale|3
+You were able to conserve fuel today thanks to your growing understanding of this planet's graviational pull|1|fuel|3
+Nothing eventful happened today. What a relief.|1|morale|1
+Your electric toothbrush worked today. Hope surges through your body.|1|morale|5
+Sleep restores.|1|morale|2
+Your research is is yielding astonishing discoveries!|1|morale|4
+The adrenaline rush of exploration is addictive.|1|morale|4
