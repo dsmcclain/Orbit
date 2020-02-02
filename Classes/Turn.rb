@@ -53,7 +53,7 @@ class Turn
       when "c"
         current_astronaut.collection.list_items
       when "s"
-        current_astronaut.show_statistics
+        current_astronaut.show_statistics(log.sentiments)
       when "i"
         use_item(game)
       when "p"

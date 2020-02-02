@@ -17,7 +17,7 @@ end
 
 def generate_game
   number_of_players = gets.chomp.to_i
-  game = Game.new(generate_astronauts(number_of_players), Turn.new(Map.new))
+  Game.new(generate_astronauts(number_of_players), Turn.new(Map.new))
 end
 
 def generate_astronauts(astronauts)
@@ -27,7 +27,7 @@ def generate_astronauts(astronauts)
     name = gets.chomp
     astronaut_array << Astronaut.new(name, Collection.new)
   end
-  return astronaut_array
+  astronaut_array
 end
 
 def print_introduction

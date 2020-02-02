@@ -33,8 +33,7 @@ class Astronaut
     move_ship(map, -1, 1)
   end
 
-   ##DOES NOT BELONG
-  def show_statistics
+  def show_statistics(sentiments)
     puts %Q{>> #{name}'s' Statistics >>>>
       Current Sector is: #{attributes[:location]}
       Speed is         : #{attributes[:speed]}
@@ -42,7 +41,13 @@ class Astronaut
       Morale is        : #{attributes[:morale]}
       Collection holds : #{collection.items.size} items
       Sectors explored : #{pp attributes[:sectors]}
+      Sentiment        : #{check_sentiment(sentiments)}
     }
+  end
+
+  def check_sentiment(sentiments)
+    mood = attributes[:morale] / 10
+    sentiments[mood]
   end
 
   def morale_level
