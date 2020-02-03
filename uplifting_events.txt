@@ -5,3 +5,5 @@ Your electric toothbrush worked today. Hope surges through your body.|1|morale|5
 Sleep restores.|1|morale|2
 Your research is is yielding astonishing discoveries!|1|morale|4
 The adrenaline rush of exploration is addictive.|1|morale|4
+You are starting to feel like you can accomplish anything!|1|morale|3
+The experience of progress in the face of danger makes you feel alive!|1|morale|2

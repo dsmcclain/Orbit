@@ -1,6 +1,9 @@
 class Turn
   attr_accessor :map, :current_astronaut, :turn_over, :day, :log
 
+  UPLIFTING_EVENTS = CSV.read("uplifting_events.txt", col_sep: '|')
+  DEPRESSING_EVENTS = CSV.read("depressing_events.txt", col_sep: '|')
+
   def initialize(map)
     @map = map
     @current_astronaut
@@ -8,8 +11,6 @@ class Turn
     @day = 0
     @log = Log.new
   end
-
-  EVENTS_ARRAY = CSV.read("depressing_events.txt", col_sep: '|')
 
   def play(game)
     game.astronauts.each do |astronaut|
@@ -35,8 +36,9 @@ class Turn
     Event = Struct.new(:message, :scope, :attribute, :degree)
 
     def new_event
+      events_array = current_astronaut.attributes[:location] < 10 ? DEPRESSING_EVENTS : UPLIFTING_EVENTS
       num = rand(0..8)
-      Event.new(*EVENTS_ARRAY[num])
+      Event.new(*events_array[num])
     end
 
     def look_for_warnings
