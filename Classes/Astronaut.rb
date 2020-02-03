@@ -38,13 +38,13 @@ class Astronaut
       Current Sector is: #{attributes[:location]}
       Speed is         : #{attributes[:speed]}
       Fuel is          : #{attributes[:fuel]}
-      Morale is        : #{check_morale(morale_options)}
+      Morale is        : #{translate_morale(morale_options)}
       Collection holds : #{collection.items.size} items
       Sectors explored : #{pp attributes[:sectors]}
     }
   end
 
-  def check_morale(morale_options)
+  def translate_morale(morale_options)
     morale_options[attributes[:morale]]
   end
 

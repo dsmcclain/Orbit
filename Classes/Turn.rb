@@ -35,7 +35,7 @@ class Turn
     Event = Struct.new(:message, :scope, :attribute, :degree)
 
     def new_event
-      num = rand(0..10)
+      num = rand(0..8)
       Event.new(*EVENTS_ARRAY[num])
     end
 
