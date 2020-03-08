@@ -1,4 +1,5 @@
 class Astronaut
+  require './Modules/Console.rb'
   include Console
   attr_accessor :name, :collection, :attributes, :game_over
 
