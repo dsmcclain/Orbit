@@ -23,6 +23,7 @@ class Turn
 
   def start_turn(astronaut, game)
     self.current_astronaut = astronaut
+    current_astronaut.show_statistics(log.morale_options)
     log.daily_log(day, current_astronaut.attributes[:morale])
     look_for_warnings
     self.turn_over = false

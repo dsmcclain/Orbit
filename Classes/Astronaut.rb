@@ -1,4 +1,5 @@
 class Astronaut
+  include Console
   attr_accessor :name, :collection, :attributes, :game_over
 
   def initialize(name, collection)
@@ -34,14 +35,16 @@ class Astronaut
   end
 
   def show_statistics(morale_options)
-    puts %Q{>> #{name}'s' Statistics >>>>
+    puts %Q{>>>>>>>> #{name.upcase}'S STATISTICS >>>>>>>>
+#{buffer_line}
       Current Sector is: #{attributes[:location]}
       Speed is         : #{attributes[:speed]}
       Fuel is          : #{attributes[:fuel]}
       Morale is        : #{translate_morale(morale_options)}
       Collection holds : #{collection.items.size} items
-      Sectors explored : #{pp attributes[:sectors]}
-    }
+      Sectors explored : #{attributes[:sectors]}
+#{buffer_line}
+#{buffer_line}}
   end
 
   def translate_morale(morale_options)
