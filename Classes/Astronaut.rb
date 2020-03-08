@@ -34,10 +34,6 @@ class Astronaut
     move_ship(map, -1, 1)
   end
 
-  def translate_morale(morale_options)
-    morale_options[attributes[:morale]]
-  end
-
   def fuel_level
     attributes[:fuel] <= 15 ? "critical" : "good"
   end
