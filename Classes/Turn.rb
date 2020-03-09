@@ -1,7 +1,7 @@
 class Turn
   require 'csv'
 
-  attr_accessor :map, :astronaut, :turn_over, :day
+  attr_accessor :map, :astronaut, :turn_over, :day, :game
 
   UPLIFTING_EVENTS = CSV.read("uplifting_events.txt", col_sep: '|')
   DEPRESSING_EVENTS = CSV.read("depressing_events.txt", col_sep: '|')
@@ -14,22 +14,23 @@ class Turn
   end
 
   def play(game)
+    @game = game
     game.astronauts.each do |astronaut|
       puts "\n#{astronaut.name}'s turn!"
-      start_turn(astronaut, game)
+      start_turn(astronaut)
       game.remove_astronaut(astronaut) if astronaut.game_over
     end
     self.day += 1
   end
 
-  def start_turn(astronaut, game)
+  def start_turn(astronaut)
     self.astronaut = astronaut
     astronaut.show_statistics
     astronaut.daily_log(day)
     look_for_warnings
     self.turn_over = false
     until turn_over
-      get_input(game)
+      get_input
     end
   end
 
@@ -48,20 +49,20 @@ class Turn
       astronaut.warning("fuel") if astronaut.fuel_level == "critical"
     end
 
-    def get_input(game)
+    def get_input
       case astronaut.user_prompt
       when "d"
         puts "Driving..."
-        drive(map, game)
+        drive(map)
       when "f"
         puts "Drifting..."
-        drift(map, game)
+        drift(map)
       when "c"
         astronaut.collection.list_items
       when "s"
         astronaut.show_statistics
       when "i"
-        use_item(game)
+        use_item
       when "p"
         astronaut.list_options
       else
@@ -69,27 +70,27 @@ class Turn
       end
     end
 
-    def drive(map, game)
+    def drive(map)
       sleep(1)
       game.dispatch_effect(new_event, astronaut)
       astronaut.drive_ship(map)
       self.turn_over = true
     end
 
-    def drift(map, game)
+    def drift(map)
       sleep(1)
       game.dispatch_effect(new_event, astronaut)
       astronaut.drift_ship(map)
       self.turn_over = true
     end
 
-    def use_item(game)
+    def use_item
       item = item_chosen
       if item
         game.dispatch_effect(item, astronaut)
         self.turn_over = true
       else 
-        get_input(game)
+        get_input
       end
     end
 
