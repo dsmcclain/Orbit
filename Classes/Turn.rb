@@ -65,6 +65,9 @@ class Turn
         use_item
       when "p"
         astronaut.list_options
+      when "exit", "quit"
+        puts "bye!"
+        exit(true)
       else
         puts "That command is not executable"
       end
